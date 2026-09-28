@@ -1,0 +1,13 @@
+rules_version = '2';
+
+// Solo el dueño (tu UID de Firebase Auth) puede leer y escribir.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isOwner() {
+      return request.auth != null && request.auth.uid == "8k9Kpn8jhaTJgNSVsgc6LFXu0l53";
+    }
+    match /{document=**} {
+      allow read, write: if isOwner();
+    }
+  }
+}

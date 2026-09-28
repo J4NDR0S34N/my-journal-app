@@ -1,0 +1,9 @@
+{
+  "name": "My Journal",
+  "short_name": "My Journal",
+  "start_url": "./#/inicio",
+  "display": "standalone",
+  "background_color": "#0c0b0a",
+  "theme_color": "#0c0b0a",
+  "icons": [{ "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }]
+}

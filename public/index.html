@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>My Journal</title>
+  <meta name="description" content="Diario personal." />
+  <meta name="robots" content="noindex, nofollow" />
+  <meta name="theme-color" content="#0c0b0a" />
+  <meta name="color-scheme" content="dark light" />
+  <script>
+    // Aplica el tema guardado antes de pintar (evita un destello del otro tema).
+    try { document.documentElement.dataset.theme = localStorage.getItem("mj:theme") || "dark"; } catch (e) {}
+  </script>
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="My Journal" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="icon" href="icon.svg" type="image/svg+xml" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Gelasio:ital,wght@0,400;0,700;1,400&family=Inter:wght@400;500;600;700&family=Instrument+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Literata:ital,opsz,wght@0,7..72,400;0,7..72,500;0,7..72,600;1,7..72,400&family=Special+Elite&family=Teko:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/styles.css" />
+  <script type="module" src="js/app.js"></script>
+</head>
+<body data-route="inicio">
+  <button id="nav-toggle" class="nav-toggle mono" aria-controls="nav" aria-expanded="false">Inicio</button>
+  <nav id="nav" class="nav" aria-label="Secciones"></nav>
+  <main id="view"></main>
+  <div id="gate" class="gate" hidden></div>
+</body>
+</html>
