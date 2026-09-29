@@ -34,6 +34,20 @@ function render(src, maxDim, type, q) {
   return out;
 }
 
+// Portada personalizada de un juego: chica (máx. 900 px, ~160 KB) porque
+// se guarda dentro del documento del juego y se carga con el listado.
+export async function compressCover(file) {
+  const src = await loadBitmap(file);
+  let q = 0.82, out;
+  for (let i = 0; i < 6; i++) {
+    out = render(src, 900, "image/webp", q);
+    if (out.length <= 160_000) break;
+    q -= 0.1;
+  }
+  src.close?.();
+  return out;
+}
+
 export async function compressImage(file) {
   const src = await loadBitmap(file);
   let dim = 1800, q = 0.85, full;

@@ -14,6 +14,7 @@ export async function searchGames(q, signal) {
   if (!r.ok) throw new Error(`RAWG ${r.status}`);
   const j = await r.json();
   return (j.results || []).map((g) => ({
+    slug: g.slug,
     title: g.name,
     coverUrl: g.background_image || "",
     thumb: rawgImg(g.background_image, 200),
@@ -21,6 +22,49 @@ export async function searchGames(q, signal) {
     platforms: (g.platforms || []).map((p) => p.platform.name),
     genres: (g.genres || []).map((x) => x.name),
   }));
+}
+
+// ---------- Carátulas verticales (Steam) ----------
+// RAWG indica en qué tiendas está cada juego; si está en Steam, usamos su
+// carátula vertical oficial (600x900), que es el arte de la caja.
+const steamBoxUrl = (appid) => `https://cdn.cloudflare.steamstatic.com/steam/apps/${appid}/library_600x900_2x.jpg`;
+
+export function imageLoads(url) {
+  return new Promise((res) => {
+    const i = new Image();
+    i.onload = () => res(i.naturalWidth > 0);
+    i.onerror = () => res(false);
+    i.src = url;
+  });
+}
+
+export async function steamBox(slug) {
+  if (!slug || !RAWG_KEY) return "";
+  try {
+    const r = await fetch(`https://api.rawg.io/api/games/${encodeURIComponent(slug)}/stores?key=${RAWG_KEY}`);
+    if (!r.ok) return "";
+    const j = await r.json();
+    const m = (j.results || []).map((s) => s.url || "").join(" ").match(/store\.steampowered\.com\/app\/(\d+)/);
+    if (!m) return "";
+    const url = steamBoxUrl(m[1]);
+    return (await imageLoads(url)) ? url : "";
+  } catch {
+    return "";
+  }
+}
+
+// Para juegos guardados antes de tener el slug: lo buscamos por título.
+export async function findSlug(title) {
+  try {
+    const u = new URL("https://api.rawg.io/api/games");
+    u.search = new URLSearchParams({ key: RAWG_KEY, search: title, page_size: "5", search_precise: "true" });
+    const j = await (await fetch(u)).json();
+    const res = j.results || [];
+    const exact = res.find((g) => g.name.toLowerCase() === title.toLowerCase());
+    return (exact || res[0])?.slug || "";
+  } catch {
+    return "";
+  }
 }
 
 // ---------- MusicBrainz + Cover Art Archive ----------

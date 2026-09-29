@@ -1,11 +1,49 @@
 import { mountShelf, byDate } from "../lib/shelf.js";
-import { searchGames, hasRawg, rawgImg } from "../lib/apis.js";
+import { searchGames, hasRawg, rawgImg, steamBox, findSlug } from "../lib/apis.js";
 import { fmtShort } from "../lib/dates.js";
+import { update } from "../store.js";
+import { render as renderGame } from "./juego.js";
 
 const opts = (arr) => arr.map((v) => ({ v, l: v }));
 
-export function render(root) {
+// Portada de la tarjeta: carátula vertical (Steam o personalizada) o, si no
+// hay, la imagen horizontal de RAWG.
+export const boxImg = (g) => g.boxUrl || rawgImg(g.coverUrl, 640);
+
+// Juegos guardados antes de las carátulas verticales: se buscan una sola vez
+// en segundo plano y se guardan (boxChecked evita repetir la búsqueda).
+let backfilling = false;
+async function backfillBoxes(items, repaint) {
+  if (backfilling || !hasRawg()) return;
+  backfilling = true;
+  for (const g of items.filter((x) => !x.boxChecked)) {
+    const slug = g.slug || (await findSlug(g.title));
+    const boxUrl = g.boxUrl || (await steamBox(slug));
+    const patch = { boxChecked: true, slug: slug || "", ...(boxUrl ? { boxUrl } : {}) };
+    try {
+      await update("games", g.id, patch);
+      Object.assign(g, patch);
+      if (boxUrl) repaint();
+    } catch (err) {
+      console.warn("carátula", err);
+    }
+  }
+  backfilling = false;
+}
+
+// Posición del scroll del listado, para volver al mismo lugar desde un juego.
+let listScroll = 0;
+
+export async function render(root, id) {
+  if (id) return renderGame(root, id);
+  if (listScroll) setTimeout(() => scrollTo(0, listScroll), 80);
   return mountShelf(root, {
+    // Tocar un juego abre su página (#/coleccion/{id}).
+    onOpen: (gameId) => {
+      listScroll = scrollY;
+      sessionStorage.setItem("mj:fromList", "1");
+      location.hash = `#/coleccion/${encodeURIComponent(gameId)}`;
+    },
     col: "games",
     title: "Colección",
     statusField: "status",
@@ -20,10 +58,18 @@ export function render(root) {
     disabledMsg: "Falta la API key de RAWG en config.js",
     debounce: 350,
     search: searchGames,
-    shapes: { big: 10, wide: 14 },
-    img: (x) => rawgImg(x.coverUrl, 640),
+    // Al elegir un resultado, buscamos su carátula vertical en Steam.
+    enrich: async (r) => {
+      r.boxUrl = await steamBox(r.slug);
+      r.boxChecked = true;
+    },
+    afterLoad: backfillBoxes,
+    // Tarjetas grandes con nombre y año debajo de la portada.
+    captionBelow: true,
+    shapes: { big: 0, wide: 0 },
+    img: boxImg,
     thumb: (x) => rawgImg(x.coverUrl, 200),
-    sub: (x) => fmtShort(x.releaseDate) || "sin fecha",
+    sub: (x) => x.releaseDate?.slice(0, 4) || "sin fecha",
     resultSub: (r) => [r.releaseDate?.slice(0, 4), r.platforms.slice(0, 3).join(", ")].filter(Boolean).join(" · "),
     sorts: [
       ["release-desc", "lanzamiento ↓", byDate(-1)],
@@ -50,6 +96,9 @@ export function render(root) {
       releaseDate: r.releaseDate || "",
       platform: p.platform || "",
       genre: p.genre || "",
+      slug: r.slug || "",
+      boxUrl: r.boxUrl || "",
+      boxChecked: !!r.boxChecked,
     }),
   });
 }

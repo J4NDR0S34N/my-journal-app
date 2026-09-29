@@ -4,7 +4,11 @@
 import { firebaseConfig } from "./config.js";
 
 const SDK = "https://www.gstatic.com/firebasejs/12.3.0";
-export const isLocal = !firebaseConfig.apiKey;
+// Modo local: sin config de Firebase, o en desarrollo con ?local en la URL
+// (solo en localhost, para probar diseño sin tocar los datos reales).
+const devLocal =
+  ["localhost", "127.0.0.1"].includes(location.hostname) && new URLSearchParams(location.search).has("local");
+export const isLocal = !firebaseConfig.apiKey || devLocal;
 
 let fb = null; // { auth, db, fs, au }
 const cache = new Map(); // col -> Map(id -> data)

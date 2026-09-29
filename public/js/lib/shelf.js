@@ -44,8 +44,7 @@ export function mountShelf(root, cfg) {
       <header class="page-head">
         <h1>${cfg.title}</h1>
         <nav class="tabs mono" role="tablist">
-          ${cfg.tabs.map(([k, l]) => `<button role="tab" data-tab="${k}">${l}</button>`).join("")}
-        </nav>
+          ${cfg.tabs.map(([k, l]) => `<button role="tab" data-tab="${k}">${l}</button>`).join("")}        </nav>
       </header>
       <div class="search">
         <input type="search" class="search-in" placeholder="${cfg.placeholder}" autocomplete="off" enterkeyhint="search" />
@@ -104,7 +103,19 @@ export function mountShelf(root, cfg) {
       grid.innerHTML = `<p class="empty mono muted">${state.loaded ? cfg.empty[state.tab] : "cargando…"}</p>`;
       return;
     }
-    grid.innerHTML = arr.map((x) => `
+    // "cards": portada grande con el texto debajo; si no, mosaico con el texto encima.
+    grid.classList.toggle("cards", !!cfg.captionBelow);
+    grid.innerHTML = arr.map((x) => cfg.captionBelow ? `
+      <figure class="tile card" data-id="${x.id}" tabindex="0">
+        <div class="tile-media">
+          <img src="${esc(cfg.img(x))}" alt="" loading="lazy" decoding="async" />
+          <span class="tile-fallback">${esc(x.title)}</span>
+        </div>
+        <figcaption>
+          <b>${esc(x.title)}</b>
+          <span class="mono">${esc(cfg.sub(x))}</span>
+        </figcaption>
+      </figure>` : `
       <figure class="tile ${tileSize(x.id, cfg.shapes)}${state.open === x.id ? " open" : ""}" data-id="${x.id}" tabindex="0">
         <img src="${esc(cfg.img(x))}" alt="" loading="lazy" decoding="async" />
         <span class="tile-fallback">${esc(x.title)}</span>
@@ -122,14 +133,15 @@ export function mountShelf(root, cfg) {
     const tile = e.target.closest(".tile");
     if (!tile) return;
     const id = tile.dataset.id;
-    if (e.target.closest('[data-act="more"]')) return openDetail(id);
+    if (cfg.onOpen) return cfg.onOpen(id);
+    if (cfg.captionBelow || e.target.closest('[data-act="more"]')) return openDetail(id);
     state.open = state.open === id ? null : id;
     grid.querySelectorAll(".tile.open").forEach((t) => t !== tile && t.classList.remove("open"));
     tile.classList.toggle("open", state.open === id);
   });
   grid.addEventListener("keydown", (e) => {
     const tile = e.target.closest(".tile");
-    if (tile && e.key === "Enter") openDetail(tile.dataset.id);
+    if (tile && e.key === "Enter") (cfg.onOpen || openDetail)(tile.dataset.id);
   });
 
   function openDetail(id) {
@@ -312,6 +324,7 @@ export function mountShelf(root, cfg) {
     state.items = items;
     state.loaded = true;
     paintGrid();
+    cfg.afterLoad?.(state.items, () => root.isConnected && paintGrid());
   });
   paintGrid();
 

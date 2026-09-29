@@ -67,10 +67,10 @@ function setNavOpen(v) {
 navToggle.addEventListener("click", () => setNavOpen(!document.body.classList.contains("nav-open")));
 document.addEventListener("keydown", (e) => { if (e.key === "Escape") setNavOpen(false); });
 
-const currentRoute = () => {
-  const k = location.hash.replace(/^#\/?/, "").split("?")[0];
-  return ROUTES.find((r) => r[0] === k) || ROUTES[0];
-};
+// "#/coleccion/abc123" -> sección "coleccion" con parámetro "abc123".
+const hashParts = () => location.hash.replace(/^#\/?/, "").split("?")[0].split("/");
+const currentRoute = () => ROUTES.find((r) => r[0] === hashParts()[0]) || ROUTES[0];
+const routeParam = () => decodeURIComponent(hashParts()[1] || "");
 const currentLabel = () => currentRoute()[1];
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -96,7 +96,7 @@ async function route() {
     const host = document.createElement("div");
     host.className = "view-host";
     view.replaceChildren(host);
-    const rendered = Promise.resolve(mod.render(host));
+    const rendered = Promise.resolve(mod.render(host, routeParam()));
     // Esperamos a que la vista tenga contenido (máx. 350 ms) antes de mostrarla.
     await Promise.race([rendered.catch(() => {}), sleep(350)]);
     if (seq === renderSeq) host.classList.add("in");
