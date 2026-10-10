@@ -99,6 +99,8 @@ npm test             # funciones puras (presencia)
 - `public/js/lib/sky.js`: el arte dithered del sol y la luna.
 - `public/css/styles.css`: tokens de color y tipografía (`:root`). JetBrains Mono es la mono compartida (navegación, números y fechas). Cada apartado tiene su propia fuente, definida en las variables `--f-*`: Inicio usa Georgia (Gelasio en Android), Registro Instrument Sans, Estadística Teko, Colección Bebas Neue, Música SF Pro o Inter, Notas Literata y Miscelánea Special Elite. El bloque "TIPOGRAFÍA Y DISEÑO POR APARTADO", al final del CSS, aplica cada fuente solo dentro de su sección.
 - `public/js/lib/activity.js`: textos del registro de actividad.
+- `public/sw.js`: service worker (la app abre sin conexión). Si agregás un archivo JS, sumalo a `SHELL`.
+- `public/js/lib/prefs.js` y `luz.js`: ajustes del dispositivo (háptica, movimiento) y la luz del día.
 
 ## Licencia
 

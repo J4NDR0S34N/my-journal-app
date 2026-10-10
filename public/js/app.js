@@ -285,7 +285,7 @@ async function boot() {
     rememberSignedIn(true);
     if (optimistic) optimistic = false; // ya se está mostrando
     else start();
-    // Verifica permisos (y precarga la racha) sin frenar la primera pantalla.
+    // Verifica permisos (y precarga la presencia) sin frenar la primera pantalla.
     list("days").catch((e) => {
       if (e?.code === "permission-denied") showDenied();
       else console.error(e);
@@ -295,7 +295,11 @@ async function boot() {
 
 boot();
 
-// Sin conexión: el service worker guarda la app (ver sw.js).
+// Sin conexión: el service worker guarda la app (ver sw.js). Se registra
+// cuando el navegador está libre, para no competir con la primera carga.
 if ("serviceWorker" in navigator) {
-  addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch((e) => console.warn("sw", e)));
+  addEventListener("load", () => {
+    const idle = window.requestIdleCallback || ((fn) => setTimeout(fn, 2000));
+    idle(() => navigator.serviceWorker.register("sw.js").catch((e) => console.warn("sw", e)));
+  });
 }
