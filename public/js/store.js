@@ -48,12 +48,18 @@ export async function initStore() {
     import(`${SDK}/firebase-auth.js`),
   ]);
   const a = app.initializeApp(firebaseConfig);
+  // Caché persistente (IndexedDB, compartida entre pestañas): los datos ya
+  // vistos se leen y se editan sin conexión y se sincronizan al volver.
+  // Si el navegador no tiene IndexedDB (p. ej. algunos modos privados), el
+  // SDK sigue solo con caché en memoria; si la configuración falla, se usa
+  // la instancia por defecto. En ningún caso la app deja de abrir.
   let db;
   try {
     db = fs.initializeFirestore(a, {
       localCache: fs.persistentLocalCache({ tabManager: fs.persistentMultipleTabManager() }),
     });
-  } catch {
+  } catch (e) {
+    console.warn("Firestore sin caché persistente:", e);
     db = fs.getFirestore(a);
   }
   fb = { auth: au.getAuth(a), db, fs, au };
