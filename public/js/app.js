@@ -16,6 +16,7 @@ const ROUTES = [
 
 const nav = document.getElementById("nav");
 const navToggle = document.getElementById("nav-toggle");
+const navCurrent = document.getElementById("nav-current");
 const view = document.getElementById("view");
 const gate = document.getElementById("gate");
 
@@ -101,13 +102,28 @@ function setTheme(t) {
   themeTimer = setTimeout(() => root.classList.remove("theming"), 500);
 }
 
-function setNavOpen(v) {
+// Menú: el botón dice "Menú" (aria-expanded indica si está abierto). Abierto,
+// el foco queda atrapado entre el botón y el menú, y lo de atrás queda inerte.
+const isNavOpen = () => document.body.classList.contains("nav-open");
+function setNavOpen(v, { focus = false } = {}) {
+  if (v === isNavOpen()) return;
   document.body.classList.toggle("nav-open", v);
   navToggle.setAttribute("aria-expanded", v);
-  navToggle.setAttribute("aria-label", v ? "Cerrar menú" : "Abrir menú");
+  view.inert = v;
+  if (v) (nav.querySelector("[aria-current]") || nav.querySelector("a"))?.focus({ preventScroll: true });
+  else if (focus) navToggle.focus();
 }
-navToggle.addEventListener("click", () => setNavOpen(!document.body.classList.contains("nav-open")));
-document.addEventListener("keydown", (e) => { if (e.key === "Escape") setNavOpen(false); });
+navToggle.addEventListener("click", () => setNavOpen(!isNavOpen(), { focus: true }));
+document.addEventListener("keydown", (e) => {
+  if (!isNavOpen()) return;
+  if (e.key === "Escape") return setNavOpen(false, { focus: true });
+  if (e.key !== "Tab") return;
+  const items = [navToggle, ...nav.querySelectorAll("a, button")];
+  const i = items.indexOf(document.activeElement);
+  const next = e.shiftKey ? (i <= 0 ? items.length - 1 : i - 1) : (i === items.length - 1 ? 0 : i + 1);
+  e.preventDefault();
+  items[next].focus();
+});
 
 // "#/coleccion/musica" -> sección "coleccion" con parámetros ["musica"].
 const hashParts = () => location.hash.replace(/^#\/?/, "").split("?")[0].split("/");
@@ -143,6 +159,7 @@ async function route() {
   setNavOpen(false);
   nav.querySelectorAll("a").forEach((a) =>
     a.dataset.route === key ? a.setAttribute("aria-current", "page") : a.removeAttribute("aria-current"));
+  navCurrent.textContent = label;
   document.title = key === "inicio" ? "My Journal" : `${label} — My Journal`;
   const old = view.firstElementChild;
   old?.classList.add("leaving");

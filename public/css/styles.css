@@ -164,25 +164,35 @@ img { display: block; max-width: 100%; }
 .nav-foot button { color: var(--muted); min-height: 36px; padding: 0; text-transform: inherit; letter-spacing: inherit; transition: color 0.3s var(--ease); }
 .nav-foot button:hover { color: var(--ink); }
 
-/* móvil: etiqueta en la esquina + lista a pantalla completa */
-.nav-toggle {
+/* móvil: botón "Menú" + nombre de la sección en la esquina; lista a pantalla completa */
+.topbar {
   position: fixed;
   z-index: 60;
   top: calc(var(--safe-t) + 10px);
   left: 10px;
-  width: 44px;
-  height: 44px;
-  display: grid;
-  place-content: center;
-  gap: 5px;
+  right: 10px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  pointer-events: none;
+}
+.topbar > * { pointer-events: auto; }
+.nav-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 0 16px 0 14px;
   color: var(--ink);
   background: var(--glass);
   -webkit-backdrop-filter: blur(8px);
   backdrop-filter: blur(8px);
   border-radius: 999px;
 }
+.nav-word { font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; }
+.nav-icon { display: grid; gap: 5px; }
 /* ícono: tres líneas que se cruzan en una ✕ cuando el menú está desplegado */
-.nav-toggle span {
+.nav-icon span {
   display: block;
   width: 18px;
   height: 1.5px;
@@ -190,9 +200,19 @@ img { display: block; max-width: 100%; }
   background: currentColor;
   transition: transform 0.35s var(--ease), opacity 0.2s var(--ease);
 }
-body.nav-open .nav-toggle span:nth-child(1) { transform: translateY(6.5px) rotate(45deg); }
-body.nav-open .nav-toggle span:nth-child(2) { opacity: 0; transform: scaleX(0.4); }
-body.nav-open .nav-toggle span:nth-child(3) { transform: translateY(-6.5px) rotate(-45deg); }
+body.nav-open .nav-icon span:nth-child(1) { transform: translateY(6.5px) rotate(45deg); }
+body.nav-open .nav-icon span:nth-child(2) { opacity: 0; transform: scaleX(0.4); }
+body.nav-open .nav-icon span:nth-child(3) { transform: translateY(-6.5px) rotate(-45deg); }
+/* nombre de la sección actual */
+.nav-current {
+  font: 400 11px var(--mono);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+  text-shadow: 0 0 10px var(--paper);
+  transition: opacity 0.3s var(--ease);
+}
+body.nav-open .nav-current { opacity: 0; }
 .nav {
   position: fixed;
   inset: 0;
@@ -229,11 +249,12 @@ body:not([data-route="inicio"])::before {
   pointer-events: none;
 }
 body[data-route="inicio"] main { padding-top: 0; }
-body.gated .nav-toggle, body.gated .nav, body.gated main { display: none; }
+body.gated .topbar, body.gated .nav, body.gated main { display: none; }
 
 /* escritorio: el mismo menú desplegable que en el celular, con más aire */
 @media (min-width: 900px) {
-  .nav-toggle { top: 20px; left: 24px; transition: background-color 0.25s var(--ease), transform 0.25s var(--ease); }
+  .topbar { top: 20px; left: 24px; }
+  .nav-toggle { transition: background-color 0.25s var(--ease), transform 0.25s var(--ease); }
   .nav-toggle:hover { background: var(--paper-3); transform: scale(1.05); }
   .nav { padding: 96px 80px 56px; }
   .nav a { display: inline-block; transition: color 0.3s var(--ease), transform 0.3s var(--ease); }
@@ -1052,7 +1073,7 @@ main, .sheet-wrap { font-family: var(--sans); }
 .habit-switch { display: none; }
 
 /* ---------- navegación: solo mono ---------- */
-.nav, .nav-toggle, .nav a { font-family: var(--mono); }
+.nav, .topbar, .nav a { font-family: var(--mono); }
 .nav a { font-size: clamp(24px, 7vw, 30px); line-height: 1.6; letter-spacing: -0.01em; }
 .nav a[aria-current] { font-style: normal; font-weight: 700; }
 @media (min-width: 900px) { .nav a { font-size: 36px; } }
@@ -1900,8 +1921,7 @@ html[data-motion="still"] *::after {
   animation-duration: 0.01ms !important;
   animation-delay: 0s !important;
   animation-iteration-count: 1 !important;
-  transition-duration: 0.01ms !important;
-  transition-delay: 0s !important;
+  transition: none !important;
   scroll-behavior: auto !important;
 }
 @media (prefers-reduced-motion: reduce) {
@@ -1911,7 +1931,7 @@ html[data-motion="still"] *::after {
     animation-duration: 0.01ms !important;
     animation-delay: 0s !important;
     animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
+    transition: none !important;
     scroll-behavior: auto !important;
   }
 }
