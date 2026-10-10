@@ -2,7 +2,10 @@ import { mountShelf, byDate } from "../lib/shelf.js";
 import { searchGames, hasRawg, rawgImg, steamBox, findSlug } from "../lib/apis.js";
 import { fmtShort } from "../lib/dates.js";
 import { update } from "../store.js";
+import { esc } from "../lib/ui.js";
+import { listCollections, getCollection, FACTORY } from "../lib/collections.js";
 import { render as renderGame } from "./juego.js";
+import { render as renderMusic } from "./musica.js";
 
 const opts = (arr) => arr.map((v) => ({ v, l: v }));
 
@@ -34,18 +37,58 @@ async function backfillBoxes(items, repaint) {
 // Posición del scroll del listado, para volver al mismo lugar desde un juego.
 let listScroll = 0;
 
-export async function render(root, id) {
-  if (id) return renderGame(root, id);
+// #/coleccion                    portal (una tarjeta por colección)
+// #/coleccion/videojuegos        juegos · #/coleccion/videojuegos/{id} un juego
+// #/coleccion/musica             música · #/coleccion/c-xxxx creada por vos
+export async function render(root, sub, extra) {
+  if (!sub) return renderPortal(root);
+  // Nombre actual de la colección (se puede renombrar); mientras carga, el de fábrica.
+  const fallback = FACTORY.find((f) => f.id === sub)?.name || "Colección";
+  const meta = await getCollection(sub).catch(() => null);
+  const name = meta?.name || fallback;
+  if (!root.isConnected) return;
+  document.title = `${name} — My Journal`;
+  const back = { href: "#/coleccion", label: "Colección" };
+  if (sub === "videojuegos") return extra ? renderGame(root, extra, name) : renderGames(root, name, back);
+  if (sub === "musica") return renderMusic(root, { title: name, back });
+  root.innerHTML = `
+    <section class="page">
+      <a class="back mono" href="#/coleccion">‹ Colección</a>
+      <p class="empty mono muted">Esta colección ya no existe.</p>
+    </section>`;
+}
+
+async function renderPortal(root) {
+  root.innerHTML = `
+    <section class="page portal">
+      <header class="page-head"><h1>Colección</h1></header>
+      <ul class="portal-grid"></ul>
+    </section>`;
+  const grid = root.querySelector(".portal-grid");
+  const paint = (cols) => {
+    grid.innerHTML = cols.map((c, i) => `
+      <li style="--i:${i}">
+        <a class="portal-tile" href="#/coleccion/${encodeURIComponent(c.id)}">
+          <span class="portal-name">${esc(c.name)}</span>
+        </a>
+      </li>`).join("");
+  };
+  paint(FACTORY);
+  paint(await listCollections());
+}
+
+function renderGames(root, title, back) {
   if (listScroll) setTimeout(() => scrollTo(0, listScroll), 80);
   return mountShelf(root, {
-    // Tocar un juego abre su página (#/coleccion/{id}).
+    // Tocar un juego abre su página (#/coleccion/videojuegos/{id}).
     onOpen: (gameId) => {
       listScroll = scrollY;
       sessionStorage.setItem("mj:fromList", "1");
-      location.hash = `#/coleccion/${encodeURIComponent(gameId)}`;
+      location.hash = `#/coleccion/videojuegos/${encodeURIComponent(gameId)}`;
     },
     col: "games",
-    title: "Colección",
+    title,
+    back,
     statusField: "status",
     tabs: [["owned", "Colección"], ["wishlist", "Wishlist"]],
     noun: ["juego", "juegos"],

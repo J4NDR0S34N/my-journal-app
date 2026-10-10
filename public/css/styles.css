@@ -1584,3 +1584,44 @@ body[data-route="coleccion"] .game-status { font-size: 18px; }
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
   pointer-events: none;
 }
+
+/* =====================================================================
+   COLECCIÓN: portal con una tarjeta cuadrada por colección
+   ===================================================================== */
+.portal-grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+@media (min-width: 700px) { .portal-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; } }
+@media (min-width: 1000px) { .portal-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+.portal-grid li { position: relative; container-type: inline-size; animation: itemIn 0.5s var(--ease) both; animation-delay: calc(var(--i, 0) * 50ms); }
+.portal-tile {
+  display: flex;
+  align-items: flex-end;
+  width: 100%;
+  aspect-ratio: 1;
+  padding: 14px;
+  border-radius: var(--r);
+  border: 1px solid var(--line);
+  background-color: var(--bg-2);
+  /* puntos de medio tono que se desvanecen hacia el nombre */
+  background-image:
+    linear-gradient(to top, var(--bg-2) 25%, transparent 80%),
+    radial-gradient(circle, var(--faint) 0.9px, transparent 1.3px);
+  background-size: auto, 6px 6px;
+  color: var(--fg);
+  text-align: left;
+  text-decoration: none;
+  overflow: hidden;
+  transition: transform 0.3s var(--ease), box-shadow 0.3s var(--ease), border-color 0.25s var(--ease);
+}
+/* el nombre se ajusta al ancho de la tarjeta ("Videojuegos" entra entero) */
+.portal-name { font: 400 clamp(22px, 17cqi, 52px)/0.92 var(--sans); letter-spacing: 0.02em; overflow-wrap: break-word; min-width: 0; }
+.portal-tile:active { transform: scale(0.98); }
+@media (hover: hover) and (pointer: fine) {
+  .portal-tile:hover { transform: translateY(-3px); border-color: var(--faint); box-shadow: 0 12px 30px var(--shadow); }
+}

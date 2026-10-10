@@ -179,6 +179,29 @@ export async function add(col, data) {
   return id;
 }
 
+// Crea el documento solo si todavía no existe en el servidor y devuelve el que
+// quedó guardado. Sin conexión falla sin escribir nada: así nunca pisa datos
+// que existan en otro dispositivo pero todavía no estén en esta caché.
+export async function createIfMissing(col, id, data) {
+  await authed;
+  let saved;
+  if (isLocal) {
+    const all = lsRead(col);
+    if (!all[id]) { all[id] = data; lsWrite(col, all); }
+    saved = all[id];
+  } else {
+    const ref = fb.fs.doc(fb.db, path(col), id);
+    saved = await fb.fs.runTransaction(fb.db, async (tx) => {
+      const s = await tx.get(ref);
+      if (s.exists()) return s.data();
+      tx.set(ref, data);
+      return data;
+    });
+  }
+  cache.get(col)?.set(id, saved);
+  return { id, ...saved };
+}
+
 export async function update(col, id, patch) {
   return set(col, id, patch, { merge: true });
 }

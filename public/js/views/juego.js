@@ -11,6 +11,7 @@ import { fmtShort, fmtStamp } from "../lib/dates.js";
 import { logActivity } from "../lib/activity.js";
 
 const TABS = { owned: "Colección", wishlist: "Wishlist" };
+const LIST = "#/coleccion/videojuegos";
 const shotsCol = (id) => `games/${id}/shots`;
 const fullCol = (id) => `games/${id}/shotsFull`;
 
@@ -19,7 +20,7 @@ const fullCol = (id) => `games/${id}/shotsFull`;
 let fromList = false;
 function backToList() {
   if (fromList) history.back();
-  else location.hash = "#/coleccion";
+  else location.hash = LIST;
 }
 
 // Borra un juego junto con todas sus capturas.
@@ -29,14 +30,15 @@ export async function deleteGame(id) {
   await remove("games", id);
 }
 
-export async function render(root, id) {
+// colName: nombre actual de la colección de juegos (para el enlace de vuelta).
+export async function render(root, id, colName = "Videojuegos") {
   fromList = sessionStorage.getItem("mj:fromList") === "1";
   sessionStorage.removeItem("mj:fromList");
   const game = await get("games", id);
   if (!game) {
     root.innerHTML = `
       <section class="page game">
-        <a class="back mono" href="#/coleccion">‹ Colección</a>
+        <a class="back mono" href="${LIST}">‹ ${esc(colName)}</a>
         <p class="empty mono muted">Este juego ya no está en tu colección.</p>
       </section>`;
     return;
@@ -49,7 +51,7 @@ export async function render(root, id) {
 
   root.innerHTML = `
     <section class="page game">
-      <button class="back mono">‹ Colección</button>
+      <button class="back mono">‹ ${esc(colName)}</button>
       <header class="game-hero">
         <div class="game-cover">
           <img src="${esc(rawgImg(game.coverUrl, 1280))}" alt="" />
@@ -161,7 +163,7 @@ export async function render(root, id) {
           await deleteGame(id);
           logActivity("games", `Borraste ${game.title} de ${TABS[game.status]}`);
           toast(n ? `Juego y ${plural(n, "captura", "capturas")} borrados` : "Juego borrado");
-          location.replace("#/coleccion");
+          location.replace(LIST);
         } catch (err) {
           toast("No se pudo borrar");
           console.error(err);

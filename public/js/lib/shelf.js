@@ -1,5 +1,5 @@
 // Estante genérico: buscador con autocompletar + grid mosaico + filtros.
-// Lo usan Colección (games) y Música (music).
+// Lo usan las colecciones de Videojuegos (games) y Música (music).
 
 import { list, add, update, remove } from "../store.js";
 import { esc, debounce, toast, confirmTap, openSheet, plural } from "./ui.js";
@@ -42,8 +42,9 @@ export function mountShelf(root, cfg) {
 
   root.innerHTML = `
     <section class="page shelf shelf-${cfg.col}">
+      ${cfg.back ? `<a class="back mono" href="${cfg.back.href}">‹ ${esc(cfg.back.label)}</a>` : ""}
       <header class="page-head">
-        <h1>${cfg.title}</h1>
+        <h1>${esc(cfg.title)}</h1>
         <nav class="tabs mono">
           <span class="tabs-list" role="tablist">${cfg.tabs.map(([k, l]) => `<button role="tab" data-tab="${k}">${l}</button>`).join("")}</span>
           ${(cfg.links || []).map(([l, href]) => `<a class="tab-link" href="${esc(href)}" target="_blank" rel="noopener">${esc(l)}<span aria-hidden="true">↗</span></a>`).join("")}

@@ -1,6 +1,7 @@
 import { initStore, onUser, signIn, signOut, isLocal, list, clearCache } from "./store.js";
 import { dayKey } from "./lib/dates.js";
 import { esc } from "./lib/ui.js";
+import { isCollectionId } from "./lib/collections.js";
 
 const ROUTES = [
   ["inicio", "Inicio", () => import("./views/home.js")],
@@ -67,17 +68,32 @@ function setNavOpen(v) {
 navToggle.addEventListener("click", () => setNavOpen(!document.body.classList.contains("nav-open")));
 document.addEventListener("keydown", (e) => { if (e.key === "Escape") setNavOpen(false); });
 
-// "#/coleccion/abc123" -> sección "coleccion" con parámetro "abc123".
+// "#/coleccion/musica" -> sección "coleccion" con parámetros ["musica"].
 const hashParts = () => location.hash.replace(/^#\/?/, "").split("?")[0].split("/");
 const currentRoute = () => ROUTES.find((r) => r[0] === hashParts()[0]) || ROUTES[0];
-const routeParam = () => decodeURIComponent(hashParts()[1] || "");
+const routeParams = () => hashParts().slice(1).map((p) => decodeURIComponent(p));
+
+// Enlaces viejos que siguen funcionando: #/coleccion/{idJuego} (antes de
+// que Colección tuviera varias colecciones) -> #/coleccion/videojuegos/{idJuego}.
+function redirectFor() {
+  const [key, sub, ...rest] = hashParts();
+  if (key === "coleccion" && sub && !isCollectionId(decodeURIComponent(sub)))
+    return `#/coleccion/videojuegos/${[sub, ...rest].join("/")}`;
+  return "";
+}
+
+// Cada colección usa la tipografía y el fondo de su estilo (Música tiene el suyo).
+const styleKey = (key, [sub] = []) => (key === "coleccion" && sub === "musica" ? "musica" : key);
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // Transición: la vista actual se desvanece, se carga la nueva por detrás y
 // entra con un fade + leve desplazamiento (ver .view-host en styles.css).
 async function route() {
+  const to = redirectFor();
+  if (to) return location.replace(to); // vuelve a entrar por hashchange
   const [key, label, load] = currentRoute();
+  const params = routeParams();
   const seq = ++renderSeq;
   setNavOpen(false);
   nav.querySelectorAll("a").forEach((a) =>
@@ -90,12 +106,12 @@ async function route() {
     if (seq !== renderSeq) return;
     cleanup?.();
     cleanup = null;
-    document.body.dataset.route = key;
+    document.body.dataset.route = styleKey(key, params);
     scrollTo(0, 0);
     const host = document.createElement("div");
     host.className = "view-host";
     view.replaceChildren(host);
-    const rendered = Promise.resolve(mod.render(host, routeParam()));
+    const rendered = Promise.resolve(mod.render(host, ...params));
     // Esperamos a que la vista tenga contenido (máx. 350 ms) antes de mostrarla.
     await Promise.race([rendered.catch(() => {}), sleep(350)]);
     if (seq === renderSeq) host.classList.add("in");

@@ -44,10 +44,11 @@ async function backfillCovers(items, repaint) {
   if (found % 6) repaint();
 }
 
-export function render(root) {
+export function render(root, { title = "Música", back } = {}) {
   return mountShelf(root, {
     col: "music",
-    title: "Música",
+    title,
+    back,
     statusField: "status",
     tabs: [["listened", "Escuchados"], ["pending", "Pendientes"]],
     // Accesos directos junto a las pestañas (se abren en otra pestaña).
