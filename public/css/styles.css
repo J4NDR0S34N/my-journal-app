@@ -700,7 +700,7 @@ a.presence:hover { border-color: var(--muted); }
   font-size: 11.5px;
   color: var(--ink-2);
 }
-.chip[aria-pressed="true"] { background: var(--ink); border-color: var(--ink); color: var(--paper); }
+.chip[aria-pressed="true"], .chip[aria-checked="true"] { background: var(--ink); border-color: var(--ink); color: var(--paper); }
 
 /* ================= miscelánea ================= */
 .misc-actions { display: flex; gap: 8px; }
@@ -1856,3 +1856,42 @@ html[data-theme="light"] .row-likes { color: #c8102e; } /* contraste AA sobre pa
 }
 .toggle[aria-checked="true"]::before { background: var(--ink); }
 .toggle[aria-checked="true"]::after { transform: translateX(20px); }
+
+/* =====================================================================
+   MOVIMIENTO (ajustes): data-motion en <html> = full | soft | still
+   ===================================================================== */
+@keyframes fadeIn { from { opacity: 0; } }
+@keyframes fadeOut { to { opacity: 0; } }
+/* suave: solo fundidos, sin desplazamientos */
+html[data-motion="soft"] .view-host.in,
+html[data-motion="soft"] .act-list li,
+html[data-motion="soft"] .portal-grid li,
+html[data-motion="soft"] .sort-pop,
+html[data-motion="soft"] body.nav-open .nav li,
+html[data-motion="soft"] body.nav-open .nav-foot { animation-name: fadeIn; }
+html[data-motion="soft"] .view-host.leaving { animation-name: fadeOut; }
+html[data-motion="soft"] .sheet { transform: none; }
+/* quieto: nada se mueve (también si el sistema pide menos movimiento y no
+   se eligió otra cosa en ajustes) */
+html[data-motion="still"] *,
+html[data-motion="still"] *::before,
+html[data-motion="still"] *::after {
+  animation-duration: 0.01ms !important;
+  animation-delay: 0s !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  transition-delay: 0s !important;
+  scroll-behavior: auto !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  html:not([data-motion="full"]):not([data-motion="soft"]) *,
+  html:not([data-motion="full"]):not([data-motion="soft"]) *::before,
+  html:not([data-motion="full"]):not([data-motion="soft"]) *::after {
+    animation-duration: 0.01ms !important;
+    animation-delay: 0s !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+.setting-col { flex-direction: column; align-items: stretch; gap: 12px; padding-bottom: 16px; }

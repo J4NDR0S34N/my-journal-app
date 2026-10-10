@@ -5,6 +5,7 @@ import { HABITS, countDone } from "../habits.js";
 import { esc } from "../lib/ui.js";
 import { presenceStats, presenceText, weekDots, weekLabel } from "../lib/presence.js";
 import { activitySince } from "../lib/activity.js";
+import { motion, onMotion } from "../lib/prefs.js";
 
 const SUN = `<svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true"><circle cx="8" cy="8" r="3" fill="currentColor"/><g stroke="currentColor" stroke-width="1.3" stroke-linecap="round"><path d="M8 1v2M8 13v2M1 8h2M13 8h2M3 3l1.4 1.4M11.6 11.6L13 13M3 13l1.4-1.4M11.6 4.4L13 3"/></g></svg>`;
 const MOON = `<svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true"><path d="M10.5 1.8A6.3 6.3 0 1 0 14.2 11 5.2 5.2 0 0 1 10.5 1.8z" fill="currentColor"/></svg>`;
@@ -81,7 +82,8 @@ export async function render(root) {
 
   const $ = (s) => root.querySelector(s);
   let day = isDaytime();
-  const sky = createSky($(".sky"), { day });
+  const sky = createSky($(".sky"), { day, motion: motion() });
+  const offMotion = onMotion((m) => sky.setMotion(m));
 
   function tick() {
     const now = new Date();
@@ -120,5 +122,5 @@ export async function render(root) {
     $(".act-body").innerHTML = `<p class="act-empty muted">No se pudo cargar la actividad.</p>`;
   });
 
-  return () => { clearInterval(timer); sky.destroy(); };
+  return () => { clearInterval(timer); offMotion(); sky.destroy(); };
 }

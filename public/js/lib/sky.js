@@ -44,11 +44,18 @@ function hash(i) {
   return ((x ^ (x >>> 16)) >>> 0) / 4294967296;
 }
 
-export function createSky(canvas, { day }) {
+// Cuadros por segundo según el ajuste de movimiento (tope: 30 fps). En
+// "suave" además el tiempo corre a la mitad; en "quieto" se dibuja un cuadro.
+const FRAME_MS = { full: 60, soft: 120 };
+const SPEED = { full: 1, soft: 0.5 };
+
+export function createSky(canvas, { day, motion = "full" }) {
   const ctx = canvas.getContext("2d");
   const low = document.createElement("canvas");
   const lctx = low.getContext("2d");
-  let cols, rows, cell, dpr, img, pattern, stars, raf, last = 0, running = true;
+  let cols, rows, cell, dpr, img, pattern, stars, raf = 0, last = 0, running = true;
+  // reloj propio: avanza solo mientras se anima (sin saltos al reanudar)
+  let clock = 0, prev = null, visible = !document.hidden, onScreen = true;
   // color de los puntos: sale del CSS (.sky { color }) para seguir el tema
   let ink = [236, 230, 220];
   const readInk = () => {
@@ -90,7 +97,7 @@ export function createSky(canvas, { day }) {
         sp: 0.8 + hash(i * 11) * 2.2,
       });
     }
-    draw(performance.now());
+    draw(clock);
   }
 
   function intensity(t) {
@@ -195,19 +202,41 @@ export function createSky(canvas, { day }) {
     ctx.fillRect(0, 0, canvas.width, canvas.height);
   }
 
+  // Solo se anima si la página está visible, el canvas está en pantalla y
+  // el movimiento no es "quieto".
+  const animating = () => running && motion !== "still" && visible && onScreen;
   function loop(t) {
-    if (!running) return;
-    if (t - last > 60) { draw(t); last = t; }
+    raf = 0;
+    if (!animating()) { prev = null; return; }
+    if (prev !== null) clock += Math.min(t - prev, 100) * SPEED[motion];
+    prev = t;
+    if (t - last >= FRAME_MS[motion]) { draw(clock); last = t; }
     raf = requestAnimationFrame(loop);
   }
+  const kick = () => { if (animating() && !raf) raf = requestAnimationFrame(loop); };
 
+  const onVisibility = () => { visible = !document.hidden; kick(); };
+  document.addEventListener("visibilitychange", onVisibility);
+  const io = new IntersectionObserver(([e]) => { onScreen = e.isIntersecting; kick(); });
+  io.observe(canvas);
+  // Quieto: sin bucle, así que el color se vuelve a tomar al cambiar el tema.
+  const mo = new MutationObserver(() => { if (!animating()) setTimeout(() => draw(clock), 500); });
+  mo.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme", "data-luz"] });
   const ro = new ResizeObserver(resize);
   ro.observe(canvas);
   resize();
-  raf = requestAnimationFrame(loop);
+  kick();
 
   return {
-    setDay(v) { if (v !== day) { day = v; draw(performance.now()); } },
-    destroy() { running = false; cancelAnimationFrame(raf); ro.disconnect(); },
+    setDay(v) { if (v !== day) { day = v; draw(clock); } },
+    setMotion(m) { motion = m; kick(); },
+    destroy() {
+      running = false;
+      cancelAnimationFrame(raf);
+      ro.disconnect();
+      io.disconnect();
+      mo.disconnect();
+      document.removeEventListener("visibilitychange", onVisibility);
+    },
   };
 }

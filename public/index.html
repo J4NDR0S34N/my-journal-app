@@ -9,9 +9,14 @@
   <meta name="theme-color" content="#0c0b0a" />
   <meta name="color-scheme" content="dark light" />
   <script>
-    // Aplica el tema guardado y la luz del día antes de pintar (evita un
-    // destello). Las mismas horas que setLuz() en js/lib/luz.js.
+    // Aplica tema, movimiento y luz del día antes de pintar (evita un
+    // destello). Misma lógica que js/lib/prefs.js y js/lib/luz.js.
     try { document.documentElement.dataset.theme = localStorage.getItem("mj:theme") || "dark"; } catch (e) {}
+    try {
+      var m = localStorage.getItem("mj:motion");
+      document.documentElement.dataset.motion = /^(full|soft|still)$/.test(m || "") ? m
+        : matchMedia("(prefers-reduced-motion: reduce)").matches ? "still" : "full";
+    } catch (e) {}
     (function (h) { document.documentElement.dataset.luz = h >= 5 && h < 8 ? "alba" : h >= 8 && h < 17 ? "dia" : h >= 17 && h < 20 ? "tarde" : "noche"; })(new Date().getHours());
   </script>
   <meta name="apple-mobile-web-app-capable" content="yes" />

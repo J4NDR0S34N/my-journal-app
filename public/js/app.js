@@ -1,7 +1,7 @@
 import { initStore, onUser, signIn, signOut, isLocal, list, clearCache } from "./store.js";
 import { dayKey } from "./lib/dates.js";
 import { esc, openSheet } from "./lib/ui.js";
-import { hapticsOn, setHaptics } from "./lib/prefs.js";
+import { hapticsOn, setHaptics, MOTIONS, motion, setMotion, applyMotion } from "./lib/prefs.js";
 import { isCollectionId } from "./lib/collections.js";
 import { startLuz } from "./lib/luz.js";
 
@@ -53,9 +53,24 @@ function openSettings() {
         </div>
         <button class="toggle" role="switch" data-set="haptics" aria-checked="${hapticsOn()}" aria-label="Háptica"></button>
       </div>
+      <div class="setting setting-col">
+        <div>
+          <p class="setting-name">Movimiento</p>
+          <p class="mono muted setting-hint">Suave quita los desplazamientos; quieto deja todo estático, también la ilustración de puntos.</p>
+        </div>
+        <div class="chips" role="radiogroup" aria-label="Movimiento">
+          ${MOTIONS.map(([k, l]) => `<button class="chip mono" role="radio" data-set-motion="${k}" aria-checked="${motion() === k}">${l}</button>`).join("")}
+        </div>
+      </div>
       <div class="detail-actions"><button class="btn btn-ghost" data-close>Listo</button></div>
     </div>`);
   sh.el.addEventListener("click", (e) => {
+    const m = e.target.closest("[data-set-motion]");
+    if (m) {
+      setMotion(m.dataset.setMotion);
+      sh.el.querySelectorAll("[data-set-motion]").forEach((b) => b.setAttribute("aria-checked", b === m));
+      return;
+    }
     const t = e.target.closest('[data-set="haptics"]');
     if (!t) return;
     const on = t.getAttribute("aria-checked") !== "true";
@@ -224,6 +239,7 @@ const rememberSignedIn = (v) => { if (isLocal) return; try { v ? localStorage.se
 
 async function boot() {
   startLuz();
+  applyMotion();
   buildNav();
   // El código de la sección se baja al mismo tiempo que Firebase.
   currentRoute()[2]().catch(() => {});

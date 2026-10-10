@@ -18,3 +18,36 @@ export function setHaptics(on) {
 export function haptic() {
   if (hapticsOn() && "vibrate" in navigator) navigator.vibrate(10);
 }
+
+// ---------- movimiento ----------
+// "completo", "suave" (sin desplazamientos, ilustración más lenta) o "quieto"
+// (sin animaciones; la ilustración de puntos queda estática). Si nunca se
+// eligió, se sigue a prefers-reduced-motion del sistema. Queda en
+// data-motion de <html> para el CSS.
+const MOTION = "mj:motion";
+export const MOTIONS = [["full", "completo"], ["soft", "suave"], ["still", "quieto"]];
+const reduced = matchMedia("(prefers-reduced-motion: reduce)");
+const listeners = new Set();
+
+export function motion() {
+  const v = read(MOTION);
+  return MOTIONS.some(([k]) => k === v) ? v : reduced.matches ? "still" : "full";
+}
+
+export function setMotion(v) {
+  write(MOTION, v);
+  applyMotion();
+}
+
+export function applyMotion() {
+  const m = motion();
+  document.documentElement.dataset.motion = m;
+  listeners.forEach((fn) => fn(m));
+}
+
+// Avisa cuando cambia (ajuste propio o del sistema). Devuelve la baja.
+export function onMotion(fn) {
+  listeners.add(fn);
+  return () => listeners.delete(fn);
+}
+reduced.addEventListener?.("change", applyMotion);
