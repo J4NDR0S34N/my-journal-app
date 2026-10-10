@@ -1625,3 +1625,52 @@ body[data-route="coleccion"] .game-status { font-size: 18px; }
 @media (hover: hover) and (pointer: fine) {
   .portal-tile:hover { transform: translateY(-3px); border-color: var(--faint); box-shadow: 0 12px 30px var(--shadow); }
 }
+.portal .page-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.portal-edit {
+  min-height: 44px;
+  padding: 0 16px;
+  border-radius: 999px;
+  border: 1px solid var(--faint);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--fg-2);
+}
+.portal-edit[aria-pressed="true"] { background: var(--fg); border-color: var(--fg); color: var(--bg); }
+/* "+": crea una colección nueva */
+.portal-add {
+  justify-content: center;
+  align-items: center;
+  border-style: dashed;
+  border-color: var(--faint);
+  background: transparent;
+  color: var(--muted);
+}
+.portal-add span { font: 300 56px/1 var(--mono); }
+/* modo edición: borde punteado y la palabra "editar" en cada tarjeta */
+.portal.editing .portal-tile[data-id] { border-style: dashed; border-color: var(--muted); }
+.portal.editing .portal-tile[data-id]::after {
+  content: "editar";
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  font: 400 10px var(--mono);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.portal-tile { position: relative; }
+.portal-move-label { margin-top: 20px; }
+.portal-move { margin-top: 8px; }
+.portal-move + .detail-actions { margin-top: 28px; }
+@media (hover: hover) and (pointer: fine) {
+  .portal-add:hover, .portal-edit:hover { color: var(--fg); border-color: var(--muted); }
+}
+
+/* colección genérica: formulario de ítem y nota en la ficha */
+.item-cover { display: grid; grid-template-columns: 96px 1fr; gap: 14px; align-items: start; }
+.item-cover .cover-preview { width: 96px; }
+.item-cover .detail-actions { margin-top: 8px; }
+.item-cover-in { display: grid; gap: 4px; min-width: 0; }
+.item-note { margin: 14px 0 0; white-space: pre-wrap; word-break: break-word; color: var(--fg-2); line-height: 1.6; }
+.item-form .cover-msg:empty { display: none; }

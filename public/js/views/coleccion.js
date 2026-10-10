@@ -2,10 +2,14 @@ import { mountShelf, byDate } from "../lib/shelf.js";
 import { searchGames, hasRawg, rawgImg, steamBox, findSlug } from "../lib/apis.js";
 import { fmtShort } from "../lib/dates.js";
 import { update } from "../store.js";
-import { esc } from "../lib/ui.js";
-import { listCollections, getCollection, FACTORY } from "../lib/collections.js";
+import { esc, toast, confirmTap, openSheet, plural } from "../lib/ui.js";
+import {
+  listCollections, getCollection, FACTORY, isCustomId,
+  createCollection, renameCollection, moveCollection, deleteCollection, listItems,
+} from "../lib/collections.js";
 import { render as renderGame } from "./juego.js";
 import { render as renderMusic } from "./musica.js";
+import { render as renderCustom } from "./coleccionPropia.js";
 
 const opts = (arr) => arr.map((v) => ({ v, l: v }));
 
@@ -51,6 +55,7 @@ export async function render(root, sub, extra) {
   const back = { href: "#/coleccion", label: "Colección" };
   if (sub === "videojuegos") return extra ? renderGame(root, extra, name) : renderGames(root, name, back);
   if (sub === "musica") return renderMusic(root, { title: name, back });
+  if (isCustomId(sub) && meta) return renderCustom(root, meta, back);
   root.innerHTML = `
     <section class="page">
       <a class="back mono" href="#/coleccion">‹ Colección</a>
@@ -58,23 +63,143 @@ export async function render(root, sub, extra) {
     </section>`;
 }
 
+// ---------- portal ----------
+// "editar" cambia el modo: tocar una tarjeta abre su hoja (nombre, orden y,
+// en las creadas por vos, borrar). El cuadrado "+" crea una colección nueva.
 async function renderPortal(root) {
   root.innerHTML = `
     <section class="page portal">
-      <header class="page-head"><h1>Colección</h1></header>
+      <header class="page-head">
+        <h1>Colección</h1>
+        <button class="portal-edit mono" aria-pressed="false">editar</button>
+      </header>
       <ul class="portal-grid"></ul>
     </section>`;
+  const page = root.querySelector(".portal");
   const grid = root.querySelector(".portal-grid");
-  const paint = (cols) => {
+  const editBtn = root.querySelector(".portal-edit");
+  let cols = FACTORY, editing = false;
+
+  const paint = () => {
     grid.innerHTML = cols.map((c, i) => `
       <li style="--i:${i}">
-        <a class="portal-tile" href="#/coleccion/${encodeURIComponent(c.id)}">
+        <a class="portal-tile" href="#/coleccion/${encodeURIComponent(c.id)}" data-id="${esc(c.id)}">
           <span class="portal-name">${esc(c.name)}</span>
         </a>
-      </li>`).join("");
+      </li>`).join("") + `
+      <li style="--i:${cols.length}">
+        <button class="portal-tile portal-add" aria-label="Nueva colección"><span aria-hidden="true">+</span></button>
+      </li>`;
   };
-  paint(FACTORY);
-  paint(await listCollections());
+  const setEditing = (v) => {
+    editing = v;
+    page.classList.toggle("editing", v);
+    editBtn.setAttribute("aria-pressed", v);
+    editBtn.textContent = v ? "listo" : "editar";
+  };
+
+  editBtn.addEventListener("click", () => setEditing(!editing));
+  grid.addEventListener("click", (e) => {
+    if (e.target.closest(".portal-add")) return openCreate();
+    const tile = e.target.closest(".portal-tile[data-id]");
+    if (!tile || !editing) return;
+    e.preventDefault();
+    openEdit(cols.find((c) => c.id === tile.dataset.id));
+  });
+
+  function nameForm(title, value, submit) {
+    return `
+      <form class="form name-form">
+        <h2>${title}</h2>
+        <label class="mono label">Nombre
+          <input name="name" type="text" required maxlength="60" autocomplete="off" value="${esc(value)}" />
+        </label>
+        <div class="detail-actions">
+          <button class="btn" type="submit">${submit}</button>
+          <button class="btn btn-ghost" type="button" data-close>Cancelar</button>
+        </div>
+      </form>`;
+  }
+
+  function openCreate() {
+    const sh = openSheet(nameForm("Nueva colección", "", "Crear"));
+    const f = sh.el.querySelector("form");
+    f.name.focus();
+    f.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const name = f.name.value.trim();
+      if (!name) return;
+      try {
+        const id = await createCollection(name);
+        sh.close();
+        location.hash = `#/coleccion/${id}`;
+      } catch (err) {
+        toast("No se pudo crear");
+        console.error(err);
+      }
+    });
+  }
+
+  function openEdit(c) {
+    if (!c) return;
+    const sh = openSheet(`
+      ${nameForm("Editar colección", c.name, "Guardar nombre")}
+      <p class="mono label portal-move-label">Lugar</p>
+      <div class="detail-actions portal-move">
+        <button class="btn btn-ghost btn-sm" data-move="-1">← Antes</button>
+        <button class="btn btn-ghost btn-sm" data-move="1">Después →</button>
+      </div>
+      ${isCustomId(c.id) ? `<div class="detail-actions"><button class="btn btn-ghost" data-act="del">Borrar colección</button></div>` : ""}`);
+    const f = sh.el.querySelector("form");
+    const paintMove = () => {
+      const i = cols.findIndex((x) => x.id === c.id);
+      sh.el.querySelector('[data-move="-1"]').disabled = i <= 0;
+      sh.el.querySelector('[data-move="1"]').disabled = i >= cols.length - 1;
+    };
+    paintMove();
+    f.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const name = f.name.value.trim();
+      if (!name || name === c.name) return sh.close();
+      try {
+        await renameCollection(c, name);
+        c.name = name;
+        paint();
+        sh.close();
+        toast("Nombre cambiado");
+      } catch (err) {
+        toast("No se pudo guardar");
+        console.error(err);
+      }
+    });
+    sh.el.addEventListener("click", async (e) => {
+      const mv = e.target.closest("[data-move]");
+      const del = e.target.closest('[data-act="del"]');
+      try {
+        if (mv) {
+          cols = await moveCollection(c.id, +mv.dataset.move);
+          paint();
+          paintMove();
+        } else if (del) {
+          const n = (await listItems(c.id)).length;
+          confirmTap(del, async () => {
+            await deleteCollection(c.id);
+            cols = cols.filter((x) => x.id !== c.id);
+            paint();
+            sh.close();
+            toast("Colección borrada");
+          }, n ? `¿borrar con ${plural(n, "ítem", "ítems")}?` : "¿seguro?");
+        }
+      } catch (err) {
+        toast("No se pudo guardar");
+        console.error(err);
+      }
+    });
+  }
+
+  paint();
+  cols = await listCollections();
+  if (root.isConnected) paint();
 }
 
 function renderGames(root, title, back) {

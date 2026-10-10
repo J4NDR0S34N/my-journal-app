@@ -32,9 +32,9 @@ function itemHtml(a) {
     ? `<img src="${esc(a.img)}" alt="" loading="lazy" />`
     : a.emoji ? `<span class="act-emo">${a.emoji}</span>` : `<span class="act-dot"></span>`;
   return `
-    <li><a class="act-item" href="#/${ROUTE[a.kind] || "inicio"}">
+    <li><a class="act-item" href="#/${esc(a.route || ROUTE[a.kind] || "inicio")}">
       <span class="act-icon" aria-hidden="true">${icon}</span>
-      <span class="act-txt">${esc(a.text)}<small class="muted">${WHERE[a.kind] || ""}</small></span>
+      <span class="act-txt">${esc(a.text)}<small class="muted">${esc(a.where || WHERE[a.kind] || "")}</small></span>
       <span class="act-time mono">${fmtTime(new Date(a.at))}</span>
     </a></li>`;
 }
