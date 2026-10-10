@@ -298,10 +298,11 @@ body.gated .nav-toggle, body.gated .nav, body.gated main { display: none; }
   text-shadow: 0 0 24px var(--paper), 0 0 8px var(--paper);
 }
 .home-status { font-size: 12px; margin: 0 0 18px; }
-.streak {
+/* presencia: "Presente X/N este mes" + puntos de la semana (mono) */
+.presence {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 12px;
   min-height: 44px;
   padding: 0 16px;
   font-size: 13px;
@@ -311,7 +312,9 @@ body.gated .nav-toggle, body.gated .nav, body.gated main { display: none; }
   border-radius: 999px;
   background: var(--glass);
 }
-a.streak:hover { border-color: var(--muted); }
+a.presence:hover { border-color: var(--muted); }
+.presence-week { letter-spacing: 0.12em; font-size: 15px; line-height: 1; }
+.home-welcome { font-size: 12px; color: var(--ink-2); margin: 0 0 10px; }
 .home-foot {
   display: flex;
   align-items: center;
@@ -452,7 +455,7 @@ a.streak:hover { border-color: var(--muted); }
   letter-spacing: 0.22em;
   text-transform: uppercase;
 }
-.hud .streak { min-height: 36px; padding: 0 12px; font-size: 12px; background: transparent; border-color: var(--hud-line); color: var(--hud-fg); }
+.hud .presence { min-height: 36px; padding: 0 12px; font-size: 12px; background: transparent; border-color: var(--hud-line); color: var(--hud-fg); }
 .stat + .stat { margin-top: 18px; }
 .stat-top { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; }
 .stat-name { font: 500 13px var(--sans); letter-spacing: 0.14em; text-transform: uppercase; }
@@ -952,7 +955,7 @@ html.theming *::after {
 /* ================= hover (solo con mouse) ================= */
 /* Transiciones base para todo lo que reacciona al cursor. */
 .btn, .chip, .tabs button, .filters select, .search-in, .result,
-.month-nav button, .day-row, .stat, .hud .streak,
+.month-nav button, .day-row, .stat, .hud .presence,
 .tile, .m-item, .m-del, .note-head, .note-actions button, .composer,
 .tile-more, .act-item, .nav-foot button {
   transition: background-color 0.25s var(--ease), color 0.25s var(--ease), border-color 0.25s var(--ease),
@@ -975,7 +978,7 @@ html.theming *::after {
   .stat { padding: 4px 6px; margin-left: -6px; margin-right: -6px; border-radius: 4px; }
   .stat:hover { background: var(--hud-seg); }
   .stat:hover .bar i.on { box-shadow: 0 0 10px var(--hud-glow); }
-  .hud .streak:hover { border-color: var(--hud-dim); }
+  .hud .presence:hover { border-color: var(--hud-dim); }
 
   /* Colección / Música */
   .tabs button:hover { color: var(--ink); }
@@ -1094,7 +1097,7 @@ main, .sheet-wrap { font-family: var(--sans); }
 
 /* ---------- Estadística: HUD condensado (Teko + mono) ---------- */
 .stats .hud-head h1 { font: 500 34px/1 var(--sans); letter-spacing: 0.08em; }
-.stats .hud .streak { font: 500 21px/1 var(--sans); letter-spacing: 0.04em; padding-top: 3px; }
+.stats .hud-head { flex-wrap: wrap; }
 .stats .stat-name { font: 500 22px/1 var(--sans); letter-spacing: 0.08em; }
 .stats .stat-top { align-items: flex-end; margin-bottom: 6px; }
 .stats .stat-lvl { display: flex; align-items: baseline; gap: 8px; }

@@ -1,8 +1,9 @@
 import { createSky } from "../lib/sky.js";
 import { dayKey, isDaytime, fmtLong, fmtTime, fmtShort } from "../lib/dates.js";
 import { list } from "../store.js";
-import { HABITS, countDone, computeStreak } from "../habits.js";
-import { plural, esc } from "../lib/ui.js";
+import { HABITS, countDone } from "../habits.js";
+import { esc } from "../lib/ui.js";
+import { presenceStats, presenceText, weekDots, weekLabel } from "../lib/presence.js";
 import { activitySince } from "../lib/activity.js";
 
 const SUN = `<svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true"><circle cx="8" cy="8" r="3" fill="currentColor"/><g stroke="currentColor" stroke-width="1.3" stroke-linecap="round"><path d="M8 1v2M8 13v2M1 8h2M13 8h2M3 3l1.4 1.4M11.6 11.6L13 13M3 13l1.4-1.4M11.6 4.4L13 3"/></g></svg>`;
@@ -64,7 +65,11 @@ export async function render(root) {
           <p class="mono label home-date"></p>
           <h1 class="home-greet"></h1>
           <p class="mono home-status muted"></p>
-          <a class="streak mono" href="#/estadistica" hidden></a>
+          <p class="mono home-welcome" hidden>Bienvenido de vuelta</p>
+          <a class="presence mono" href="#/estadistica" hidden>
+            <span class="presence-txt"></span>
+            <span class="presence-week" role="img"></span>
+          </a>
         </div>
       </div>
       <section class="activity" aria-labelledby="act-h">
@@ -96,10 +101,12 @@ export async function render(root) {
     const done = countDone(days.find((d) => d.id === today)?.h);
     $(".home-status").textContent =
       done === 0 ? "hoy todavía no registraste nada" : `hoy · ${done} de ${HABITS.length} hábitos`;
-    const n = computeStreak(days, today, dayKey);
-    const s = $(".streak");
-    s.textContent = `🔥 ${plural(n, "día", "días")}`;
-    s.hidden = false;
+    const p = presenceStats(days, today);
+    $(".presence-txt").textContent = presenceText(p);
+    $(".presence-week").textContent = weekDots(p);
+    $(".presence-week").setAttribute("aria-label", weekLabel(p));
+    $(".presence").hidden = false;
+    $(".home-welcome").hidden = !p.welcomeBack;
   }).catch(() => {});
 
   activitySince(2).then((items) => {

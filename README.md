@@ -92,7 +92,8 @@ npm test             # funciones puras (presencia)
 
 ## Dónde tocar
 
-- `public/js/habits.js`: hábitos, qué hábito suma a qué stat y la regla de la racha.
+- `public/js/habits.js`: hábitos y qué hábito suma a qué stat.
+- `public/js/lib/presence.js`: presencia del mes ("Presente X/N este mes" y los 7 puntos de la semana). Un día cuenta si tiene un hábito o la respuesta del día.
 - `public/js/views/home.js`: saludo y textos del footer (día y noche).
 - `public/js/lib/sky.js`: el arte dithered del sol y la luna.
 - `public/css/styles.css`: tokens de color y tipografía (`:root`). JetBrains Mono es la mono compartida (navegación, números y fechas). Cada apartado tiene su propia fuente, definida en las variables `--f-*`: Inicio usa Georgia (Gelasio en Android), Registro Instrument Sans, Estadística Teko, Colección Bebas Neue, Música SF Pro o Inter, Notas Literata y Miscelánea Special Elite. El bloque "TIPOGRAFÍA Y DISEÑO POR APARTADO", al final del CSS, aplica cada fuente solo dentro de su sección.

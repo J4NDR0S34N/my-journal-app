@@ -1,4 +1,4 @@
-// Hábitos, stats y racha.
+// Hábitos y stats.
 
 export const HABITS = [
   { key: "gym", label: "Gimnasio", emoji: "💪" },
@@ -39,20 +39,3 @@ export function computeStats(days) {
 }
 
 export const countDone = (h = {}) => HABITS.filter((x) => h[x.key]).length;
-
-// PROVISORIO — un día cuenta si tiene al menos 1 hábito. Si hoy todavía
-// está vacío, la racha no se corta: se cuenta desde ayer.
-export const STREAK_MIN = 1;
-
-export function computeStreak(days, todayKey, dayKeyFn) {
-  const map = new Map(days.map((d) => [d.id, d.h || {}]));
-  const ok = (k) => countDone(map.get(k)) >= STREAK_MIN;
-  let cursor = new Date(todayKey + "T12:00:00");
-  if (!ok(todayKey)) cursor.setDate(cursor.getDate() - 1);
-  let n = 0;
-  while (ok(dayKeyFn(cursor))) {
-    n++;
-    cursor.setDate(cursor.getDate() - 1);
-  }
-  return n;
-}
