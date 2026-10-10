@@ -1,15 +1,16 @@
 // Hábitos y stats.
 
+// done: cómo se lee en Inicio ("hoy: corriste, leíste").
 export const HABITS = [
-  { key: "gym", label: "Gimnasio", emoji: "💪" },
-  { key: "run", label: "Correr", emoji: "⚡" },
-  { key: "gaming", label: "Gaming", emoji: "🎮" },
-  { key: "hydration", label: "Hidratación", emoji: "🚰" },
-  { key: "rest", label: "Descanso", emoji: "💤" },
-  { key: "projects", label: "Proyectos", emoji: "💼" },
-  { key: "reading", label: "Lectura", emoji: "📚" },
-  { key: "drawing", label: "Dibujar", emoji: "🎨" },
-  { key: "movies", label: "Cine", emoji: "🎬" },
+  { key: "gym", label: "Gimnasio", emoji: "💪", done: "entrenaste" },
+  { key: "run", label: "Correr", emoji: "⚡", done: "corriste" },
+  { key: "gaming", label: "Gaming", emoji: "🎮", done: "jugaste" },
+  { key: "hydration", label: "Hidratación", emoji: "🚰", done: "te hidrataste" },
+  { key: "rest", label: "Descanso", emoji: "💤", done: "descansaste" },
+  { key: "projects", label: "Proyectos", emoji: "💼", done: "avanzaste un proyecto" },
+  { key: "reading", label: "Lectura", emoji: "📚", done: "leíste" },
+  { key: "drawing", label: "Dibujar", emoji: "🎨", done: "dibujaste" },
+  { key: "movies", label: "Cine", emoji: "🎬", done: "viste una película" },
 ];
 
 // PROVISORIO — reemplazar por el mapeo exacto del prototipo anterior.

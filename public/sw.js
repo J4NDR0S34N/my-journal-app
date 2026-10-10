@@ -12,7 +12,7 @@ const SHELL = [
   "./", "index.html", "css/styles.css", "manifest.webmanifest", "icon.svg",
   "js/app.js", "js/config.js", "js/habits.js", "js/store.js",
   ...["activity", "apis", "collections", "coverSheet", "dates", "deezer", "image", "luz",
-    "prefs", "presence", "shelf", "sky", "tracks", "ui"].map((f) => `js/lib/${f}.js`),
+    "prefs", "presence", "shelf", "sky", "tracks", "ui", "umbral"].map((f) => `js/lib/${f}.js`),
   ...["coleccion", "coleccionPropia", "home", "juego", "misc", "musica", "notas", "registro", "stats"]
     .map((f) => `js/views/${f}.js`),
   `${SDK}/firebase-app.js`, `${SDK}/firebase-firestore.js`, `${SDK}/firebase-auth.js`,

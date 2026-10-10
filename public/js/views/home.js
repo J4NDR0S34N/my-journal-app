@@ -1,8 +1,9 @@
 import { createSky } from "../lib/sky.js";
 import { dayKey, isDaytime, fmtLong, fmtTime, fmtShort } from "../lib/dates.js";
-import { list } from "../store.js";
-import { HABITS, countDone } from "../habits.js";
-import { esc } from "../lib/ui.js";
+import { list, set } from "../store.js";
+import { HABITS } from "../habits.js";
+import { esc, debounce } from "../lib/ui.js";
+import { preguntaDelDia } from "../lib/umbral.js";
 import { presenceStats, presenceText, weekDots, weekLabel } from "../lib/presence.js";
 import { activitySince } from "../lib/activity.js";
 import { motion, onMotion } from "../lib/prefs.js";
@@ -65,8 +66,13 @@ export async function render(root) {
         <div class="home-main">
           <p class="mono label home-date"></p>
           <h1 class="home-greet"></h1>
-          <p class="mono home-status muted"></p>
           <p class="mono home-welcome" hidden>Bienvenido de vuelta</p>
+          <form class="umbral" autocomplete="off">
+            <label class="umbral-q" for="umbral-in"></label>
+            <input id="umbral-in" class="umbral-in" type="text" maxlength="280" enterkeyhint="done" placeholder="Una línea alcanza…" />
+            <span class="umbral-ok mono muted" aria-live="polite"></span>
+          </form>
+          <p class="mono home-status muted"></p>
           <a class="presence mono" href="#/estadistica" hidden>
             <span class="presence-txt"></span>
             <span class="presence-week" role="img"></span>
@@ -97,19 +103,47 @@ export async function render(root) {
   tick();
   const timer = setInterval(tick, 20_000);
 
-  list("days").then((days) => {
+  // ---------- umbral: pregunta del día ----------
+  const today = dayKey();
+  const input = $(".umbral-in");
+  $(".umbral-q").textContent = preguntaDelDia(today);
+  let saved = "", touched = false, okTimer;
+  async function save() {
+    const v = input.value.trim();
+    if (v === saved) return;
+    try {
+      await set("days", today, { respuesta: v });
+      saved = v;
+      const ok = $(".umbral-ok");
+      ok.textContent = "guardado";
+      clearTimeout(okTimer);
+      okTimer = setTimeout(() => (ok.textContent = ""), 1800);
+      list("days").then(paintDays); // la respuesta también cuenta como presencia
+    } catch (e) {
+      $(".umbral-ok").textContent = "sin guardar, se reintenta al escribir";
+      console.error(e);
+    }
+  }
+  const saveSoon = debounce(save, 1200);
+  input.addEventListener("input", () => { touched = true; saveSoon(); });
+  input.addEventListener("change", save);
+  $(".umbral").addEventListener("submit", (e) => { e.preventDefault(); save(); input.blur(); });
+
+  // ---------- hoy y presencia ----------
+  function paintDays(days) {
     if (!root.isConnected) return;
-    const today = dayKey();
-    const done = countDone(days.find((d) => d.id === today)?.h);
-    $(".home-status").textContent =
-      done === 0 ? "hoy todavía no registraste nada" : `hoy · ${done} de ${HABITS.length} hábitos`;
+    const doc = days.find((d) => d.id === today);
+    if (!touched) input.value = saved = doc?.respuesta || "";
+    const done = HABITS.filter((x) => doc?.h?.[x.key]).map((x) => x.done);
+    $(".home-status").textContent = `hoy: ${done.length ? done.join(", ") : "nada marcado todavía"}`;
     const p = presenceStats(days, today);
     $(".presence-txt").textContent = presenceText(p);
     $(".presence-week").textContent = weekDots(p);
     $(".presence-week").setAttribute("aria-label", weekLabel(p));
     $(".presence").hidden = false;
     $(".home-welcome").hidden = !p.welcomeBack;
-  }).catch(() => {});
+  }
+  list("days").then(paintDays).catch(() => {});
 
   activitySince(2).then((items) => {
     if (!root.isConnected) return;
@@ -122,5 +156,5 @@ export async function render(root) {
     $(".act-body").innerHTML = `<p class="act-empty muted">No se pudo cargar la actividad.</p>`;
   });
 
-  return () => { clearInterval(timer); offMotion(); sky.destroy(); };
+  return () => { clearInterval(timer); clearTimeout(okTimer); offMotion(); sky.destroy(); save(); };
 }
