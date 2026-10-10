@@ -73,3 +73,8 @@ solo al abrir la imagen.
 - `public/js/lib/sky.js`: el arte dithered del sol y la luna.
 - `public/css/styles.css`: tokens de color y tipografía (`:root`). JetBrains Mono es la mono compartida (navegación, números y fechas). Cada apartado tiene su propia fuente, definida en las variables `--f-*`: Inicio usa Georgia (Gelasio en Android), Registro Instrument Sans, Stats Teko, Colección Bebas Neue, Música SF Pro o Inter, Notas Literata y Miscelánea Special Elite. El bloque "TIPOGRAFÍA Y DISEÑO POR APARTADO", al final del CSS, aplica cada fuente solo dentro de su sección.
 - `public/js/lib/activity.js`: textos del registro de actividad.
+
+## Licencia
+
+[MIT](LICENSE) © 2026 J4NDR0S34N. Podés usar, copiar, modificar y
+distribuir el código, manteniendo el aviso de copyright y la licencia.
