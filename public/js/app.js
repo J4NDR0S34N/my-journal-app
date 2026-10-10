@@ -277,3 +277,8 @@ async function boot() {
 }
 
 boot();
+
+// Sin conexión: el service worker guarda la app (ver sw.js).
+if ("serviceWorker" in navigator) {
+  addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch((e) => console.warn("sw", e)));
+}
