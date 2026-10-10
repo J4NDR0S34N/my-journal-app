@@ -89,6 +89,18 @@ async function mbFetch(path, params, attempt = 0) {
 
 export const caaCover = (id, size = 500) => `https://coverartarchive.org/release-group/${id}/front-${size}`;
 
+// Canciones de un disco según MusicBrainz (sin audio). Se usa si Deezer no lo tiene.
+export async function mbTracks(releaseGroupId) {
+  const j = await mbFetch("/release", { "release-group": releaseGroupId, inc: "recordings", limit: "1" });
+  const media = j.releases?.[0]?.media || [];
+  return media.flatMap((m, disc) => (m.tracks || []).map((t, i) => ({
+    id: `mb:${disc + 1}-${i + 1}`,
+    title: t.title,
+    duration: t.length ? Math.round(t.length / 1000) : 0,
+    preview: "",
+  })));
+}
+
 const TYPE = { Album: "album", EP: "ep", Single: "single" };
 const topTags = (arr = []) =>
   [...arr].sort((a, b) => (b.count || 0) - (a.count || 0)).map((t) => t.name).slice(0, 6);

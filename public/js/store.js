@@ -1,7 +1,7 @@
 // Capa de datos: Firestore (si hay config) o localStorage (modo local).
 // Mantiene una caché en memoria por colección para navegar sin recargar.
 
-import { firebaseConfig } from "./config.js";
+import { firebaseConfig, OWNER_UID } from "./config.js";
 
 const SDK = "https://www.gstatic.com/firebasejs/12.3.0";
 // Modo local: sin config de Firebase, o en desarrollo con ?local en la URL
@@ -12,6 +12,22 @@ export const isLocal = !firebaseConfig.apiKey || devLocal;
 
 let fb = null; // { auth, db, fs, au }
 const cache = new Map(); // col -> Map(id -> data)
+const inflight = new Map(); // col -> Promise de list() en curso
+
+// Cada usuario tiene su propio diario: el dueño en la raíz, el resto en
+// users/{uid}/… (ver firestore.rules). `col` puede ser una ruta, ej. games/x/shots.
+let base = "";
+const path = (col) => base + col;
+
+// Las vistas pueden empezar a dibujarse antes de que Firebase y la sesión estén
+// listos: cada lectura/escritura espera a `authed` (resuelta al haber usuario).
+let authed, resolveAuthed, authedDone = false;
+function resetAuthed() {
+  authedDone = false;
+  authed = new Promise((r) => (resolveAuthed = () => { authedDone = true; r(); }));
+}
+resetAuthed();
+if (isLocal) resolveAuthed();
 
 // ---------- local backend ----------
 const lsKey = (col) => `mj:${col}`;
@@ -45,7 +61,13 @@ export async function initStore() {
 
 export function onUser(cb) {
   if (isLocal) { cb({ uid: "local" }); return; }
-  fb.au.onAuthStateChanged(fb.auth, cb);
+  fb.au.onAuthStateChanged(fb.auth, (user) => {
+    const nextBase = user && user.uid !== OWNER_UID ? `users/${user.uid}/` : "";
+    if (nextBase !== base) { base = nextBase; cache.clear(); }
+    if (user) resolveAuthed();
+    else if (authedDone) resetAuthed();
+    cb(user);
+  });
 }
 
 export async function signIn() {
@@ -65,26 +87,48 @@ export const clearCache = () => cache.clear();
 // ---------- CRUD ----------
 export async function list(col) {
   if (cache.has(col)) return toArr(col);
-  let obj;
-  if (isLocal) obj = lsRead(col);
-  else {
-    const snap = await fb.fs.getDocs(fb.fs.collection(fb.db, col));
-    obj = {};
-    snap.forEach((d) => (obj[d.id] = d.data()));
+  // Si dos partes piden la misma colección a la vez, se hace una sola lectura.
+  if (!inflight.has(col)) {
+    inflight.set(col, (async () => {
+      await authed;
+      let obj;
+      if (isLocal) obj = lsRead(col);
+      else {
+        const snap = await fb.fs.getDocs(fb.fs.collection(fb.db, path(col)));
+        obj = {};
+        snap.forEach((d) => (obj[d.id] = d.data()));
+      }
+      cache.set(col, new Map(Object.entries(obj)));
+    })().finally(() => inflight.delete(col)));
   }
-  cache.set(col, new Map(Object.entries(obj)));
+  await inflight.get(col);
   return toArr(col);
 }
 
 // Últimos n documentos ordenados por `field` (desc). Sin caché.
 export async function recent(col, field, n) {
+  await authed;
   if (isLocal) {
     return Object.entries(lsRead(col))
       .map(([id, d]) => ({ id, ...d }))
       .sort((a, b) => String(b[field] ?? "").localeCompare(String(a[field] ?? "")))
       .slice(0, n);
   }
-  const q = fb.fs.query(fb.fs.collection(fb.db, col), fb.fs.orderBy(field, "desc"), fb.fs.limit(n));
+  const q = fb.fs.query(fb.fs.collection(fb.db, path(col)), fb.fs.orderBy(field, "desc"), fb.fs.limit(n));
+  const snap = await fb.fs.getDocs(q);
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+}
+
+// Documentos con `field` >= `from`, ordenados por `field` (desc). Sin caché.
+export async function since(col, field, from) {
+  await authed;
+  if (isLocal) {
+    return Object.entries(lsRead(col))
+      .map(([id, d]) => ({ id, ...d }))
+      .filter((d) => String(d[field] ?? "") >= from)
+      .sort((a, b) => String(b[field] ?? "").localeCompare(String(a[field] ?? "")));
+  }
+  const q = fb.fs.query(fb.fs.collection(fb.db, path(col)), fb.fs.where(field, ">=", from), fb.fs.orderBy(field, "desc"));
   const snap = await fb.fs.getDocs(q);
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
 }
@@ -96,28 +140,31 @@ function toArr(col) {
 export async function get(col, id) {
   const c = cache.get(col);
   if (c?.has(id)) return { id, ...c.get(id) };
+  await authed;
   let data;
   if (isLocal) data = lsRead(col)[id];
   else {
-    const s = await fb.fs.getDoc(fb.fs.doc(fb.db, col, id));
+    const s = await fb.fs.getDoc(fb.fs.doc(fb.db, path(col), id));
     data = s.exists() ? s.data() : undefined;
   }
   return data ? { id, ...data } : null;
 }
 
 export async function set(col, id, data, { merge = true } = {}) {
+  await authed;
   if (isLocal) {
     const all = lsRead(col);
     all[id] = merge ? deepMerge(all[id] || {}, data) : data;
     lsWrite(col, all);
   } else {
-    await fb.fs.setDoc(fb.fs.doc(fb.db, col, id), data, { merge });
+    await fb.fs.setDoc(fb.fs.doc(fb.db, path(col), id), data, { merge });
   }
   const c = cache.get(col);
   if (c) c.set(id, merge ? deepMerge(c.get(id) || {}, data) : data);
 }
 
 export async function add(col, data) {
+  await authed;
   let id;
   if (isLocal) {
     id = Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
@@ -125,8 +172,8 @@ export async function add(col, data) {
     all[id] = data;
     lsWrite(col, all);
   } else {
-    id = fb.fs.doc(fb.fs.collection(fb.db, col)).id;
-    await fb.fs.setDoc(fb.fs.doc(fb.db, col, id), data);
+    id = fb.fs.doc(fb.fs.collection(fb.db, path(col))).id;
+    await fb.fs.setDoc(fb.fs.doc(fb.db, path(col), id), data);
   }
   cache.get(col)?.set(id, data);
   return id;
@@ -137,12 +184,13 @@ export async function update(col, id, patch) {
 }
 
 export async function remove(col, id) {
+  await authed;
   if (isLocal) {
     const all = lsRead(col);
     delete all[id];
     lsWrite(col, all);
   } else {
-    await fb.fs.deleteDoc(fb.fs.doc(fb.db, col, id));
+    await fb.fs.deleteDoc(fb.fs.doc(fb.db, path(col), id));
   }
   cache.get(col)?.delete(id);
 }

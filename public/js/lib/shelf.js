@@ -4,6 +4,7 @@
 import { list, add, update, remove } from "../store.js";
 import { esc, debounce, toast, confirmTap, openSheet, plural } from "./ui.js";
 import { logActivity } from "./activity.js";
+import { openCoverSheet } from "./coverSheet.js";
 
 // Tamaño estable por id para el mosaico (1x1, ancho 2x1, grande 2x2).
 function tileSize(id, shapes) {
@@ -43,8 +44,10 @@ export function mountShelf(root, cfg) {
     <section class="page shelf shelf-${cfg.col}">
       <header class="page-head">
         <h1>${cfg.title}</h1>
-        <nav class="tabs mono" role="tablist">
-          ${cfg.tabs.map(([k, l]) => `<button role="tab" data-tab="${k}">${l}</button>`).join("")}        </nav>
+        <nav class="tabs mono">
+          <span class="tabs-list" role="tablist">${cfg.tabs.map(([k, l]) => `<button role="tab" data-tab="${k}">${l}</button>`).join("")}</span>
+          ${(cfg.links || []).map(([l, href]) => `<a class="tab-link" href="${esc(href)}" target="_blank" rel="noopener">${esc(l)}<span aria-hidden="true">↗</span></a>`).join("")}
+        </nav>
       </header>
       <div class="search">
         <input type="search" class="search-in" placeholder="${cfg.placeholder}" autocomplete="off" enterkeyhint="search" />
@@ -108,7 +111,7 @@ export function mountShelf(root, cfg) {
     grid.innerHTML = arr.map((x) => cfg.captionBelow ? `
       <figure class="tile card" data-id="${x.id}" tabindex="0">
         <div class="tile-media">
-          <img src="${esc(cfg.img(x))}" alt="" loading="lazy" decoding="async" />
+          <img src="${esc(cfg.img(x))}"${altAttr(x)} alt="" loading="lazy" decoding="async" />
           <span class="tile-fallback">${esc(x.title)}</span>
         </div>
         <figcaption>
@@ -117,16 +120,33 @@ export function mountShelf(root, cfg) {
         </figcaption>
       </figure>` : `
       <figure class="tile ${tileSize(x.id, cfg.shapes)}${state.open === x.id ? " open" : ""}" data-id="${x.id}" tabindex="0">
-        <img src="${esc(cfg.img(x))}" alt="" loading="lazy" decoding="async" />
+        <img src="${esc(cfg.img(x))}"${altAttr(x)} alt="" loading="lazy" decoding="async" />
         <span class="tile-fallback">${esc(x.title)}</span>
+        ${cfg.badge ? cfg.badge(x) : ""}
         <figcaption>
           <b>${esc(x.title)}</b>
           <span class="mono">${esc(cfg.sub(x))}</span>
           <button class="tile-more mono" data-act="more">opciones</button>
         </figcaption>
       </figure>`).join("");
-    grid.querySelectorAll("img").forEach((img) =>
-      img.addEventListener("error", () => img.closest(".tile").classList.add("noimg"), { once: true }));
+    grid.querySelectorAll("img").forEach((img) => img.addEventListener("error", onTileImgError));
+  }
+
+  // cfg.imgAlt(x): imagen de respaldo si la principal no carga (p. ej. la
+  // portada rápida de Deezer → la de Cover Art Archive).
+  function altAttr(x) {
+    const alt = cfg.imgAlt?.(x);
+    return alt && alt !== cfg.img(x) ? ` data-alt="${esc(alt)}"` : "";
+  }
+  function onTileImgError(e) {
+    const img = e.currentTarget;
+    if (img.dataset.alt) {
+      img.src = img.dataset.alt;
+      delete img.dataset.alt;
+      return;
+    }
+    img.removeEventListener("error", onTileImgError);
+    img.closest(".tile").classList.add("noimg");
   }
 
   grid.addEventListener("click", (e) => {
@@ -150,21 +170,45 @@ export function mountShelf(root, cfg) {
     const other = cfg.tabs.find(([k]) => k !== x[cfg.statusField]);
     const sh = openSheet(`
       <div class="detail">
-        <img class="detail-img" src="${esc(cfg.img(x))}" alt="" />
+        <img class="detail-img" src="${esc(cfg.img(x))}"${altAttr(x)} alt="" />
         <div class="detail-body">
           <h2>${esc(x.title)}</h2>
           <dl class="mono">${cfg.details(x).filter(([, v]) => v).map(([k, v]) => `<dt>${k}</dt><dd>${esc(v)}</dd>`).join("")}</dl>
           <div class="detail-actions">
             <button class="btn" data-act="move">Mover a ${other[1]}</button>
+            ${cfg.cover ? `<button class="btn btn-ghost" data-act="cover">Cambiar portada</button>` : ""}
             <button class="btn btn-ghost" data-act="del">Borrar</button>
             <button class="btn btn-ghost" data-close>Cerrar</button>
           </div>
         </div>
       </div>`);
-    sh.el.querySelector(".detail-img").addEventListener("error", (e) => e.target.remove(), { once: true });
+    sh.el.querySelector(".detail-img").addEventListener("error", function onErr(e) {
+      const img = e.currentTarget;
+      if (img.dataset.alt) { img.src = img.dataset.alt; delete img.dataset.alt; return; }
+      img.removeEventListener("error", onErr);
+      img.remove();
+    });
+    // Contenido extra de la ficha (ej. canciones de un disco en Música).
+    cfg.detailExtra?.(x, sh, paintGrid);
     sh.el.addEventListener("click", async (e) => {
       const act = e.target.closest("[data-act]")?.dataset.act;
-      if (act === "move") {
+      if (act === "cover") {
+        // Portada propia: se guarda en cfg.cover.field y reemplaza a la original.
+        const field = cfg.cover.field;
+        sh.close();
+        openCoverSheet({
+          current: cfg.img(x),
+          ratio: cfg.cover.ratio,
+          canReset: !!x[field],
+          save: async (url) => {
+            await update(cfg.col, id, { [field]: url });
+            x[field] = url;
+            paintGrid();
+            toast(url ? "Portada actualizada" : "Volvió la portada original");
+            if (url) logActivity(cfg.col, `Cambiaste la portada de ${x.title}`, { img: url.startsWith("data:") ? "" : url });
+          },
+        });
+      } else if (act === "move") {
         const status = other[0];
         await update(cfg.col, id, { [cfg.statusField]: status });
         x[cfg.statusField] = status;
@@ -284,7 +328,12 @@ export function mountShelf(root, cfg) {
       }).join("");
     }
     paintPickers();
-    cfg.enrich?.(r).then(() => sh.el.isConnected && paintPickers());
+    cfg.enrich?.(r).then(() => {
+      if (!sh.el.isConnected) return;
+      paintPickers();
+      const fast = cfg.resultImg?.(r), img = sh.el.querySelector(".detail-img");
+      if (fast && img) img.src = fast;
+    });
 
     sh.el.addEventListener("click", async (e) => {
       const chip = e.target.closest(".chip");

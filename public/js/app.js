@@ -62,7 +62,7 @@ function setTheme(t) {
 function setNavOpen(v) {
   document.body.classList.toggle("nav-open", v);
   navToggle.setAttribute("aria-expanded", v);
-  navToggle.textContent = v ? "Cerrar" : currentLabel();
+  navToggle.setAttribute("aria-label", v ? "Cerrar menú" : "Abrir menú");
 }
 navToggle.addEventListener("click", () => setNavOpen(!document.body.classList.contains("nav-open")));
 document.addEventListener("keydown", (e) => { if (e.key === "Escape") setNavOpen(false); });
@@ -71,7 +71,6 @@ document.addEventListener("keydown", (e) => { if (e.key === "Escape") setNavOpen
 const hashParts = () => location.hash.replace(/^#\/?/, "").split("?")[0].split("/");
 const currentRoute = () => ROUTES.find((r) => r[0] === hashParts()[0]) || ROUTES[0];
 const routeParam = () => decodeURIComponent(hashParts()[1] || "");
-const currentLabel = () => currentRoute()[1];
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -100,6 +99,7 @@ async function route() {
     // Esperamos a que la vista tenga contenido (máx. 350 ms) antes de mostrarla.
     await Promise.race([rendered.catch(() => {}), sleep(350)]);
     if (seq === renderSeq) host.classList.add("in");
+    prefetchViews();
     const c = await rendered;
     if (seq !== renderSeq) { typeof c === "function" && c(); return; }
     cleanup = typeof c === "function" ? c : null;
@@ -143,7 +143,7 @@ function showDenied() {
   showGate(`
     <div class="gate-box">
       <h1>Sin acceso</h1>
-      <p class="mono muted">Esta cuenta no tiene permiso. Si sos vos, copiá este UID en <b>firestore.rules</b> y volvé a publicar las reglas:</p>
+      <p class="mono muted">No se pudo abrir tu diario. Probá salir y volver a entrar; si sigue igual, pasale este código a quien te invitó:</p>
       <code class="mono gate-uid">${esc(currentUid)}</code>
       <button class="btn btn-ghost gate-out">Salir</button>
     </div>`);
@@ -160,25 +160,56 @@ function start() {
   route();
 }
 
+// Después de mostrar la primera sección, bajamos el resto en segundo plano
+// para que cambiar de menú no tenga que esperar a la red.
+let prefetched = false;
+function prefetchViews() {
+  if (prefetched) return;
+  prefetched = true;
+  const idle = window.requestIdleCallback || ((fn) => setTimeout(fn, 1500));
+  idle(() => ROUTES.forEach(([, , load]) => load().catch(() => {})));
+}
+
+// Recordamos si la última vez había sesión: así la sección empieza a dibujarse
+// mientras Firebase arranca, en vez de esperar a que confirme el usuario.
+const SIGNED = "mj:signed";
+const wasSignedIn = () => { try { return localStorage.getItem(SIGNED) === "1"; } catch { return false; } };
+const rememberSignedIn = (v) => { if (isLocal) return; try { v ? localStorage.setItem(SIGNED, "1") : localStorage.removeItem(SIGNED); } catch {} };
+
 async function boot() {
   buildNav();
+  // El código de la sección se baja al mismo tiempo que Firebase.
+  currentRoute()[2]().catch(() => {});
+  let optimistic = isLocal || wasSignedIn();
+  if (optimistic) start();
   try {
     await initStore();
   } catch (e) {
     console.error(e);
+    view.replaceChildren();
     showGate(`<div class="gate-box"><h1>My Journal</h1><p class="mono muted">No se pudo conectar. Revisá la conexión y recargá.</p></div>`);
     return;
   }
-  onUser(async (user) => {
-    if (!user) { clearCache(); view.replaceChildren(); return showLogin(); }
-    currentUid = user.uid;
-    try {
-      await list("days"); // verifica permisos y precarga la racha
-      start();
-    } catch (e) {
-      if (e?.code === "permission-denied") showDenied();
-      else { console.error(e); start(); }
+  onUser((user) => {
+    if (!user) {
+      optimistic = false;
+      rememberSignedIn(false);
+      renderSeq++; // cancela una sección que se estuviera dibujando
+      cleanup?.();
+      cleanup = null;
+      clearCache();
+      view.replaceChildren();
+      return showLogin();
     }
+    currentUid = user.uid;
+    rememberSignedIn(true);
+    if (optimistic) optimistic = false; // ya se está mostrando
+    else start();
+    // Verifica permisos (y precarga la racha) sin frenar la primera pantalla.
+    list("days").catch((e) => {
+      if (e?.code === "permission-denied") showDenied();
+      else console.error(e);
+    });
   });
 }
 

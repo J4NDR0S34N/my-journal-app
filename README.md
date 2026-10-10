@@ -32,14 +32,23 @@ Abrí http://localhost:5500
    ```bash
    firebase deploy
    ```
-7. **Restringir el acceso a tu cuenta**: entrá a la app con Google. Vas a ver
-   la pantalla *Sin acceso* con tu UID. Copialo en `firestore.rules`
-   (reemplazando `TU_UID`) y publicá las reglas:
+7. **Definir al dueño**: entrá a la app con Google y copiá tu UID (Firebase
+   Console → Authentication → Users) en `OWNER_UID` (`public/js/config.js`) y
+   en `isOwner()` (`firestore.rules`). Después publicá:
    ```bash
-   firebase deploy --only firestore:rules
+   firebase deploy --only firestore:rules,hosting
    ```
 
+## Acceso (varias personas)
+
+Cualquiera con una cuenta de Google puede entrar y tiene **su propio diario,
+privado**. El dueño guarda sus datos en las colecciones de la raíz; el resto,
+en `users/{uid}/…` (mismas colecciones). Las reglas de Firestore impiden que
+una cuenta lea o escriba el diario de otra, incluido el dueño.
+
 ## Datos (Firestore)
+
+Rutas del dueño; para el resto de las cuentas, anteponé `users/{uid}/`.
 
 | Colección | Documento |
 |---|---|

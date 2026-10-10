@@ -39,24 +39,45 @@ export function confirmTap(btn, onConfirm, armedText = "¿seguro?") {
   }, 3000);
 }
 
+// Mientras haya una hoja abierta, la página de atrás queda fija (en iPhone
+// overflow:hidden no alcanza, por eso se fija el body en su posición actual).
+let locks = 0, lockedY = 0;
+function lockScroll() {
+  if (locks++) return;
+  lockedY = scrollY;
+  Object.assign(document.body.style, { position: "fixed", top: `-${lockedY}px`, left: "0", right: "0" });
+}
+function unlockScroll() {
+  if (--locks) return;
+  Object.assign(document.body.style, { position: "", top: "", left: "", right: "" });
+  scrollTo(0, lockedY);
+}
+
 // Hoja inferior (móvil) / modal centrado (escritorio).
 export function openSheet(html) {
   const wrap = document.createElement("div");
   wrap.className = "sheet-wrap";
   wrap.innerHTML = `<div class="sheet" role="dialog" aria-modal="true">${html}</div>`;
   document.body.append(wrap);
+  lockScroll();
   requestAnimationFrame(() => wrap.classList.add("in"));
   const onKey = (e) => e.key === "Escape" && close();
+  const closers = [];
   function close() {
+    if (!wrap.isConnected || wrap.dataset.closing) return;
+    wrap.dataset.closing = "1";
+    closers.forEach((fn) => fn());
     document.removeEventListener("keydown", onKey);
     wrap.classList.remove("in");
+    unlockScroll();
     setTimeout(() => wrap.remove(), 220);
   }
   wrap.addEventListener("click", (e) => {
     if (e.target === wrap || e.target.closest("[data-close]")) close();
   });
   document.addEventListener("keydown", onKey);
-  return { el: wrap.querySelector(".sheet"), close };
+  // onClose(fn): se ejecuta al cerrar la hoja (por botón, fondo o Escape).
+  return { el: wrap.querySelector(".sheet"), close, onClose: (fn) => closers.push(fn) };
 }
 
 export const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;

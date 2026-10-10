@@ -11,5 +11,9 @@ export const firebaseConfig = {
   appId: "1:429760431158:web:a5dd7187ccac05d8ec4497",
 };
 
+// Dueño de la app: sus datos viven en la raíz de Firestore (como siempre).
+// Cualquier otra cuenta de Google tiene su propio diario en users/{uid}/…
+export const OWNER_UID = "8k9Kpn8jhaTJgNSVsgc6LFXu0l53";
+
 // API key gratuita de https://rawg.io/apidocs
 export const RAWG_KEY = "232dcc41d6b240c2ac79e53d66ebbb19";

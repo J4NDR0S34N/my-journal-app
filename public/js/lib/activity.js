@@ -2,7 +2,7 @@
 // Cada entrada: { kind, text, at, img?, emoji? }. Los errores al registrar
 // nunca interrumpen la acción principal.
 
-import { add, set, remove, recent } from "../store.js";
+import { add, set, remove, since } from "../store.js";
 import { HABITS } from "../habits.js";
 import { dayKey, fmtShort } from "./dates.js";
 
@@ -24,4 +24,10 @@ export function logHabit(date, key, on) {
   return p.catch((e) => console.warn("activity", e));
 }
 
-export const recentActivity = (n = 30) => recent("activity", "at", n);
+// Actividad desde el comienzo (hora local) de hace `days` días.
+export function activitySince(days) {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  d.setDate(d.getDate() - days);
+  return since("activity", "at", d.toISOString());
+}

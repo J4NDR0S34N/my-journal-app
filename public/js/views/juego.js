@@ -3,9 +3,10 @@
 // versión completa en games/{id}/shotsFull/{shotId}.data (igual que Miscelánea).
 
 import { get, list, add, set, update, remove } from "../store.js";
-import { compressImage, compressCover } from "../lib/image.js";
-import { rawgImg, steamBox, findSlug, imageLoads } from "../lib/apis.js";
-import { esc, toast, confirmTap, plural, openSheet } from "../lib/ui.js";
+import { compressImage } from "../lib/image.js";
+import { rawgImg, steamBox, findSlug } from "../lib/apis.js";
+import { openCoverSheet } from "../lib/coverSheet.js";
+import { esc, toast, confirmTap, plural } from "../lib/ui.js";
 import { fmtShort, fmtStamp } from "../lib/dates.js";
 import { logActivity } from "../lib/activity.js";
 
@@ -152,7 +153,7 @@ export async function render(root, id) {
         console.error(err);
       }
     } else if (btn.dataset.act === "cover") {
-      openCoverSheet();
+      changeCover();
     } else if (btn.dataset.act === "del") {
       const n = shots.length;
       confirmTap(btn, async () => {
@@ -170,62 +171,22 @@ export async function render(root, id) {
   });
 
   // ---------- cambiar portada (la carátula vertical de la tarjeta) ----------
-  function openCoverSheet() {
-    const current = game.boxUrl || rawgImg(game.coverUrl, 640);
-    const sh = openSheet(`
-      <div class="cover-sheet">
-        <h2>Portada</h2>
-        <div class="cover-preview"><img src="${esc(current)}" alt="" /></div>
-        <form class="form cover-url">
-          <label class="mono label">Link de una imagen
-            <input name="url" type="text" inputmode="url" autocomplete="off" placeholder="https://…" />
-          </label>
-          <button class="btn" type="submit">Usar este link</button>
-        </form>
-        <div class="detail-actions">
-          <label class="btn btn-ghost">Subir imagen<input type="file" accept="image/*" hidden class="cover-file" /></label>
-          <button class="btn btn-ghost" data-act="steam">Buscar en Steam</button>
-          <button class="btn btn-ghost" data-close>Cancelar</button>
-        </div>
-        <p class="mono muted cover-msg"></p>
-      </div>`);
-    const msg = (t) => (sh.el.querySelector(".cover-msg").textContent = t);
-
-    async function save(url, how) {
-      try {
+  function changeCover() {
+    openCoverSheet({
+      current: game.boxUrl || rawgImg(game.coverUrl, 640),
+      ratio: "2 / 3",
+      save: async (url) => {
         await update("games", id, { boxUrl: url, boxChecked: true });
         game.boxUrl = url;
-        sh.close();
         toast("Portada actualizada");
         logActivity("games", `Cambiaste la portada de ${game.title}`, { img: url.startsWith("data:") ? "" : url });
-      } catch (err) {
-        msg(how === "upload" ? "No se pudo guardar la imagen." : "No se pudo guardar la portada.");
-        console.error(err);
-      }
-    }
-
-    sh.el.querySelector(".cover-url").addEventListener("submit", async (e) => {
-      e.preventDefault();
-      let url = e.target.url.value.trim();
-      if (!url) return;
-      if (!/^https?:\/\//i.test(url)) url = `https://${url}`;
-      msg("comprobando la imagen…");
-      if (await imageLoads(url)) save(url, "link");
-      else msg("No se pudo cargar esa imagen. Probá con el link directo a la imagen (clic derecho → copiar dirección de imagen).");
-    });
-    sh.el.querySelector(".cover-file").addEventListener("change", async (e) => {
-      const f = e.target.files[0];
-      if (!f) return;
-      msg("comprimiendo…");
-      try { save(await compressCover(f), "upload"); }
-      catch (err) { msg("No se pudo leer la imagen."); console.error(err); }
-    });
-    sh.el.querySelector('[data-act="steam"]').addEventListener("click", async () => {
-      msg("buscando en Steam…");
-      const slug = game.slug || (await findSlug(game.title));
-      const url = await steamBox(slug);
-      if (url) save(url, "steam");
-      else msg("Este juego no tiene carátula en Steam. Pegá un link o subí una imagen.");
+      },
+      extra: {
+        label: "Buscar en Steam",
+        busy: "buscando en Steam…",
+        find: async () => steamBox(game.slug || (await findSlug(game.title))),
+        none: "Este juego no tiene carátula en Steam. Pegá un link o subí una imagen.",
+      },
     });
   }
 

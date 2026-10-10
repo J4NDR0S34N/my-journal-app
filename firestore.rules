@@ -1,13 +1,21 @@
 rules_version = '2';
 
-// Solo el dueño (tu UID de Firebase Auth) puede leer y escribir.
+// Cada persona solo puede leer y escribir su propio diario.
+// - El dueño usa las colecciones de la raíz (days, games, music, …).
+// - Cualquier otra cuenta de Google usa users/{su uid}/… y nada más.
+// El dueño no puede ver los diarios de los demás, ni ellos el suyo.
 service cloud.firestore {
   match /databases/{database}/documents {
     function isOwner() {
       return request.auth != null && request.auth.uid == "8k9Kpn8jhaTJgNSVsgc6LFXu0l53";
     }
-    match /{document=**} {
-      allow read, write: if isOwner();
+
+    match /users/{uid}/{document=**} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+    }
+
+    match /{col}/{document=**} {
+      allow read, write: if isOwner() && col != "users";
     }
   }
 }
