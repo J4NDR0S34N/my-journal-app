@@ -15,7 +15,7 @@ const FOOT = {
 };
 
 const WHERE = { habit: "Registro", games: "Colección", music: "Música", notes: "Notas", misc: "Miscelánea" };
-const ROUTE = { habit: "registro", games: "coleccion", music: "musica", notes: "notas", misc: "misc" };
+const ROUTE = { habit: "registro", games: "coleccion/videojuegos", music: "coleccion/musica", notes: "notas", misc: "misc" };
 
 function greeting(d) {
   const h = d.getHours();
@@ -64,7 +64,7 @@ export async function render(root) {
           <p class="mono label home-date"></p>
           <h1 class="home-greet"></h1>
           <p class="mono home-status muted"></p>
-          <a class="streak mono" href="#/stats" hidden></a>
+          <a class="streak mono" href="#/estadistica" hidden></a>
         </div>
       </div>
       <section class="activity" aria-labelledby="act-h">

@@ -6,9 +6,8 @@ import { isCollectionId } from "./lib/collections.js";
 const ROUTES = [
   ["inicio", "Inicio", () => import("./views/home.js")],
   ["registro", "Registro", () => import("./views/registro.js")],
-  ["stats", "Stats", () => import("./views/stats.js")],
+  ["estadistica", "Estadística", () => import("./views/stats.js")],
   ["coleccion", "Colección", () => import("./views/coleccion.js")],
-  ["musica", "Música", () => import("./views/musica.js")],
   ["misc", "Miscelánea", () => import("./views/misc.js")],
   ["notas", "Notas", () => import("./views/notas.js")],
 ];
@@ -73,10 +72,14 @@ const hashParts = () => location.hash.replace(/^#\/?/, "").split("?")[0].split("
 const currentRoute = () => ROUTES.find((r) => r[0] === hashParts()[0]) || ROUTES[0];
 const routeParams = () => hashParts().slice(1).map((p) => decodeURIComponent(p));
 
-// Enlaces viejos que siguen funcionando: #/coleccion/{idJuego} (antes de
-// que Colección tuviera varias colecciones) -> #/coleccion/videojuegos/{idJuego}.
+// Enlaces viejos que siguen funcionando:
+//   #/stats -> #/estadistica · #/musica -> #/coleccion/musica
+//   #/coleccion/{idJuego} (antes de que Colección tuviera varias colecciones)
+//     -> #/coleccion/videojuegos/{idJuego}
+const MOVED = { stats: "estadistica", musica: "coleccion/musica" };
 function redirectFor() {
   const [key, sub, ...rest] = hashParts();
+  if (MOVED[key]) return `#/${[MOVED[key], sub, ...rest].filter(Boolean).join("/")}`;
   if (key === "coleccion" && sub && !isCollectionId(decodeURIComponent(sub)))
     return `#/coleccion/videojuegos/${[sub, ...rest].join("/")}`;
   return "";

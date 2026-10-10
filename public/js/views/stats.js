@@ -15,7 +15,7 @@ export async function render(root) {
     <section class="page stats">
       <div class="hud">
         <header class="hud-head">
-          <h1>Stats</h1>
+          <h1>Estadística</h1>
           <span class="streak"></span>
         </header>
         <div class="hud-rows"></div>
