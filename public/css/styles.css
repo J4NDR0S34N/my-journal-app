@@ -1674,3 +1674,96 @@ body[data-route="coleccion"] .game-status { font-size: 18px; }
 .item-cover-in { display: grid; gap: 4px; min-width: 0; }
 .item-note { margin: 14px 0 0; white-space: pre-wrap; word-break: break-word; color: var(--fg-2); line-height: 1.6; }
 .item-form .cover-msg:empty { display: none; }
+
+/* =====================================================================
+   MÚSICA: botón de filtro (orden) y selector de vista
+   ===================================================================== */
+.shelf-tools { display: flex; align-items: center; gap: 8px; margin-bottom: 16px; }
+.tool-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-width: 44px;
+  min-height: 44px;
+  border-radius: 999px;
+  color: var(--fg-2);
+  transition: background-color 0.25s var(--ease), color 0.25s var(--ease);
+}
+.tool-btn svg { flex: none; }
+.sort-btn { padding: 0 16px 0 12px; border: 1px solid var(--line); font-size: 13px; }
+.sort-btn[aria-expanded="true"] { border-color: var(--faint); color: var(--fg); background: var(--bg-2); }
+.sort-menu { position: relative; }
+.sort-pop {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 6px);
+  left: 0;
+  min-width: 190px;
+  display: grid;
+  padding: 6px;
+  background: var(--bg-2);
+  border: 1px solid var(--faint);
+  border-radius: 14px;
+  box-shadow: 0 20px 50px var(--shadow);
+  animation: itemIn 0.2s var(--ease) both;
+}
+.sort-pop button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 44px;
+  padding: 0 12px;
+  border-radius: 10px;
+  font-size: 15px;
+  text-align: left;
+  color: var(--fg-2);
+}
+.sort-pop button[aria-checked="true"] { color: var(--fg); font-weight: 600; }
+.sort-pop button[aria-checked="true"]::after { content: "✓"; font-size: 13px; }
+.view-switch { display: flex; border: 1px solid var(--line); border-radius: 999px; }
+.view-switch .tool-btn { min-width: 44px; min-height: 44px; }
+.view-switch .tool-btn[aria-pressed="true"] { background: var(--fg); color: var(--bg); }
+.shelf-tools .f-count { margin-left: auto; }
+@media (hover: hover) and (pointer: fine) {
+  .tool-btn:hover, .sort-pop button:hover { color: var(--fg); background: var(--bg-3); }
+  .view-switch .tool-btn[aria-pressed="true"]:hover { background: var(--fg); color: var(--bg); }
+}
+
+/* orden "Género": un título por grupo */
+.grid-group { display: flex; align-items: baseline; gap: 8px; margin: 26px 0 10px; font: 600 19px/1.2 var(--sans); }
+.grid-group:first-child { margin-top: 4px; }
+.grid-group span { font-size: 12px; font-weight: 400; }
+
+/* vista simple de Música: portadas cuadradas */
+.grid.cards.square .tile.card .tile-media { aspect-ratio: 1; }
+
+/* vista lista: una fila por disco */
+.grid.rows { display: flex; flex-direction: column; gap: 0; grid-auto-rows: auto; }
+.tile.row {
+  display: grid;
+  grid-template-columns: 56px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  min-height: 72px;
+  padding: 8px 4px;
+  border-radius: 0;
+  border-bottom: 1px solid var(--line);
+  background: none;
+  overflow: visible;
+}
+.tile.row:last-child { border-bottom: 0; }
+.row-cover { position: relative; width: 56px; height: 56px; border-radius: 6px; overflow: hidden; background: var(--bg-3); }
+.row-cover img { width: 100%; height: 100%; object-fit: cover; }
+.tile.row .tile-fallback { background-size: 4px 4px; }
+.tile.row.noimg img { display: none; }
+.row-txt { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.row-txt b { font-weight: 600; font-size: 15px; line-height: 1.25; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.row-txt span { font-size: 13px; color: var(--fg-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.row-meta { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; font-size: 12px; color: var(--muted); }
+.row-likes { color: #fa2d48; font-weight: 600; }
+html[data-theme="light"] .row-likes { color: #c8102e; } /* contraste AA sobre papel */
+@media (hover: hover) and (pointer: fine) {
+  .tile.row:hover { transform: none; box-shadow: none; background: var(--bg-2); padding-left: 10px; }
+}

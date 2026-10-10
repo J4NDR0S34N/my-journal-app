@@ -1,4 +1,6 @@
 // Estante genérico: buscador con autocompletar + grid mosaico + filtros.
+// Con cfg.sortMenu (solo Música) los filtros pasan a un botón con panel de
+// orden y aparecen tres vistas: mosaico, simple (tarjetas) y lista.
 // Lo usan las colecciones de Videojuegos (games) y Música (music).
 
 import { list, add, update, remove } from "../store.js";
@@ -24,20 +26,31 @@ const byDate = (dir) => (a, b) => {
   return dir * x.localeCompare(y);
 };
 
+// Íconos SVG simples (trazo 1.5, color del texto).
+const ICON = {
+  filter: `<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M4 6h16M7 12h10M10 18h4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>`,
+  mosaic: `<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M4 4h9v9H4zM15 4h5v5h-5zM15 11h5v9h-5zM4 15h9v5H4z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>`,
+  simple: `<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M4 4h7v7H4zM13 4h7v7h-7z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M4 15h7M13 15h7M4 19h5M13 19h5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>`,
+  list: `<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M4 5h4v4H4zM4 15h4v4H4z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M11 6h9M11 9h6M11 16h9M11 19h6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>`,
+};
+const VIEWS = [["mosaic", "Vista mosaico"], ["simple", "Vista simple"], ["list", "Vista lista"]];
+
 export function mountShelf(root, cfg) {
   const prefKey = `mj:shelf:${cfg.col}`;
   let pref = {};
   try { pref = JSON.parse(localStorage.getItem(prefKey)) || {}; } catch {}
+  const sorts = cfg.sortMenu || cfg.sorts;
   const state = {
     tab: pref.tab || cfg.tabs[0][0],
-    sort: pref.sort || "release-desc",
+    sort: sorts.some(([k]) => k === pref.sort) ? pref.sort : sorts[0][0],
+    view: cfg.sortMenu && VIEWS.some(([k]) => k === pref.view) ? pref.view : "mosaic",
     filters: {},
     items: [],
     open: null,
   };
   const tabLabel = (k) => cfg.tabs.find(([t]) => t === k)?.[1] || "";
   const savePref = () => {
-    try { localStorage.setItem(prefKey, JSON.stringify({ tab: state.tab, sort: state.sort })); } catch {}
+    try { localStorage.setItem(prefKey, JSON.stringify({ tab: state.tab, sort: state.sort, view: state.view })); } catch {}
   };
 
   root.innerHTML = `
@@ -54,18 +67,31 @@ export function mountShelf(root, cfg) {
         <input type="search" class="search-in" placeholder="${cfg.placeholder}" autocomplete="off" enterkeyhint="search" />
         <div class="search-pop" hidden></div>
       </div>
+      ${cfg.sortMenu ? `
+      <div class="shelf-tools">
+        <div class="sort-menu">
+          <button class="tool-btn sort-btn" aria-label="Filtrar y ordenar" aria-haspopup="menu" aria-expanded="false">${ICON.filter}<span class="sort-current"></span></button>
+          <div class="sort-pop" role="menu" aria-label="Ordenar por" hidden>
+            ${sorts.map(([k, l]) => `<button role="menuitemradio" data-sort="${k}" aria-checked="false">${l}</button>`).join("")}
+          </div>
+        </div>
+        <div class="view-switch" role="group" aria-label="Vista">
+          ${VIEWS.map(([k, l]) => `<button class="tool-btn" data-view="${k}" aria-label="${l}" aria-pressed="false">${ICON[k]}</button>`).join("")}
+        </div>
+        <span class="f-count muted"></span>
+      </div>` : `
       <div class="filters mono">
         <select class="f-sort" aria-label="Orden">
-          ${cfg.sorts.map(([k, l]) => `<option value="${k}">${l}</option>`).join("")}
+          ${sorts.map(([k, l]) => `<option value="${k}">${l}</option>`).join("")}
         </select>
         ${cfg.filters.map((f) => `<select class="f-filter" data-field="${f.field}" aria-label="${f.label}"></select>`).join("")}
         <span class="f-count muted"></span>
-      </div>
-      <div class="grid-wrap"><div class="grid"></div></div>
+      </div>`}
+      <div class="grid-wrap"></div>
     </section>`;
 
   const $ = (s) => root.querySelector(s);
-  const input = $(".search-in"), pop = $(".search-pop"), grid = $(".grid");
+  const input = $(".search-in"), pop = $(".search-pop"), grid = $(".grid-wrap");
 
   if (!cfg.searchEnabled()) {
     input.disabled = true;
@@ -78,11 +104,26 @@ export function mountShelf(root, cfg) {
     for (const [field, val] of Object.entries(state.filters)) {
       if (val) arr = arr.filter((x) => (x[field] || "") === val);
     }
-    const s = cfg.sorts.find(([k]) => k === state.sort)?.[2] || byDate(-1);
+    const s = sorts.find(([k]) => k === state.sort)?.[2] || byDate(-1);
     return arr.sort(s);
   }
 
+  // Orden "Género": un grupo por género (A–Z, sin género al final).
+  function groups(arr) {
+    const group = sorts.find(([k]) => k === state.sort)?.[3];
+    if (!group) return [{ label: "", items: arr }];
+    const map = new Map();
+    for (const x of arr) {
+      const g = group(x) || "";
+      map.has(g) || map.set(g, []);
+      map.get(g).push(x);
+    }
+    return [...map].map(([label, items]) => ({ label: label || "Sin género", items, none: !label }))
+      .sort((a, b) => a.none - b.none || a.label.localeCompare(b.label, "es"));
+  }
+
   function paintFilters() {
+    if (cfg.sortMenu) return paintTools();
     const inTab = state.items.filter((x) => x[cfg.statusField] === state.tab);
     root.querySelectorAll(".f-filter").forEach((sel) => {
       const f = cfg.filters.find((x) => x.field === sel.dataset.field);
@@ -107,19 +148,31 @@ export function mountShelf(root, cfg) {
       grid.innerHTML = `<p class="empty mono muted">${state.loaded ? cfg.empty[state.tab] : "cargando…"}</p>`;
       return;
     }
-    // "cards": portada grande con el texto debajo; si no, mosaico con el texto encima.
-    grid.classList.toggle("cards", !!cfg.captionBelow);
-    grid.innerHTML = arr.map((x) => cfg.captionBelow ? `
-      <figure class="tile card" data-id="${x.id}" tabindex="0">
+    // Vistas: "cards" (portada con el texto debajo), "rows" (lista de una
+    // columna) o mosaico (texto encima de la portada al tocar).
+    const view = cfg.captionBelow ? "simple" : state.view;
+    const cls = { simple: "grid cards", list: "grid rows", mosaic: "grid" }[view];
+    const tile = { simple: cardHtml, list: rowHtml, mosaic: mosaicHtml }[view];
+    grid.innerHTML = groups(arr).map((g) => `
+      ${g.label ? `<h3 class="grid-group">${esc(g.label)} <span class="mono muted">${g.items.length}</span></h3>` : ""}
+      <div class="${cls}${cfg.squareCards ? " square" : ""}">${g.items.map(tile).join("")}</div>`).join("");
+    grid.querySelectorAll("img").forEach((img) => img.addEventListener("error", onTileImgError));
+  }
+
+  const cardHtml = (x) => `
+      <figure class="tile card" data-id="${x.id}" data-detail tabindex="0">
         <div class="tile-media">
           <img src="${esc(cfg.img(x))}"${altAttr(x)} alt="" loading="lazy" decoding="async" />
           <span class="tile-fallback">${esc(x.title)}</span>
+          ${cfg.badge && !cfg.captionBelow ? cfg.badge(x) : ""}
         </div>
         <figcaption>
           <b>${esc(x.title)}</b>
-          <span class="mono">${esc(cfg.sub(x))}</span>
+          <span class="mono">${esc((cfg.cardSub || cfg.sub)(x))}</span>
         </figcaption>
-      </figure>` : `
+      </figure>`;
+
+  const mosaicHtml = (x) => `
       <figure class="tile ${tileSize(x.id, cfg.shapes)}${state.open === x.id ? " open" : ""}" data-id="${x.id}" tabindex="0">
         <img src="${esc(cfg.img(x))}"${altAttr(x)} alt="" loading="lazy" decoding="async" />
         <span class="tile-fallback">${esc(x.title)}</span>
@@ -129,8 +182,36 @@ export function mountShelf(root, cfg) {
           <span class="mono">${esc(cfg.sub(x))}</span>
           <button class="tile-more mono" data-act="more">opciones</button>
         </figcaption>
-      </figure>`).join("");
-    grid.querySelectorAll("img").forEach((img) => img.addEventListener("error", onTileImgError));
+      </figure>`;
+
+  // Fila: portada chica a la izquierda; título, artista, año y ♥ a la derecha.
+  const rowHtml = (x) => {
+    const src = cfg.listImg?.(x) || cfg.img(x);
+    const alt = cfg.img(x) !== src ? ` data-alt="${esc(cfg.img(x))}"` : "";
+    const likes = x.liked?.length || 0;
+    return `
+      <article class="tile row" data-id="${x.id}" data-detail tabindex="0">
+        <span class="row-cover">
+          <img src="${esc(src)}"${alt} alt="" loading="lazy" decoding="async" />
+          <span class="tile-fallback"></span>
+        </span>
+        <span class="row-txt">
+          <b>${esc(x.title)}</b>
+          <span>${esc(x.artist || "")}</span>
+        </span>
+        <span class="row-meta mono">
+          <span>${esc(x.releaseDate?.slice(0, 4) || "")}</span>
+          ${likes ? `<span class="row-likes" aria-label="${likes} canciones favoritas">♥ ${likes}</span>` : ""}
+        </span>
+      </article>`;
+  };
+
+  // ---------- orden y vista (Música) ----------
+  function paintTools() {
+    const cur = sorts.find(([k]) => k === state.sort);
+    $(".sort-current").textContent = cur[1];
+    root.querySelectorAll("[data-sort]").forEach((b) => b.setAttribute("aria-checked", b.dataset.sort === state.sort));
+    root.querySelectorAll("[data-view]").forEach((b) => b.setAttribute("aria-pressed", b.dataset.view === state.view));
   }
 
   // cfg.imgAlt(x): imagen de respaldo si la principal no carga (p. ej. la
@@ -155,7 +236,7 @@ export function mountShelf(root, cfg) {
     if (!tile) return;
     const id = tile.dataset.id;
     if (cfg.onOpen) return cfg.onOpen(id);
-    if (cfg.captionBelow || e.target.closest('[data-act="more"]')) return openDetail(id);
+    if ("detail" in tile.dataset || e.target.closest('[data-act="more"]')) return openDetail(id);
     state.open = state.open === id ? null : id;
     grid.querySelectorAll(".tile.open").forEach((t) => t !== tile && t.classList.remove("open"));
     tile.classList.toggle("open", state.open === id);
@@ -239,7 +320,44 @@ export function mountShelf(root, cfg) {
     savePref();
     paintGrid();
   });
-  $(".f-sort").addEventListener("change", (e) => { state.sort = e.target.value; savePref(); paintGrid(); });
+  $(".f-sort")?.addEventListener("change", (e) => { state.sort = e.target.value; savePref(); paintGrid(); });
+
+  // Panel de orden: se cierra al elegir, al tocar afuera o con Escape.
+  const sortBtn = $(".sort-btn"), sortPop = $(".sort-pop");
+  const setSortOpen = (v, focusBtn) => {
+    if (!sortPop) return;
+    sortPop.hidden = !v;
+    sortBtn.setAttribute("aria-expanded", v);
+    if (v) sortPop.querySelector('[aria-checked="true"]')?.focus();
+    else if (focusBtn) sortBtn.focus();
+  };
+  sortBtn?.addEventListener("click", () => setSortOpen(sortPop.hidden));
+  sortPop?.addEventListener("click", (e) => {
+    const b = e.target.closest("[data-sort]");
+    if (!b) return;
+    state.sort = b.dataset.sort;
+    state.open = null;
+    savePref();
+    setSortOpen(false, true);
+    paintGrid();
+  });
+  sortPop?.addEventListener("keydown", (e) => {
+    if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+    e.preventDefault();
+    const items = [...sortPop.querySelectorAll("[data-sort]")];
+    const i = items.indexOf(document.activeElement) + (e.key === "ArrowDown" ? 1 : -1);
+    items[(i + items.length) % items.length].focus();
+  });
+  const onSortKey = (e) => { if (e.key === "Escape" && sortPop && !sortPop.hidden) setSortOpen(false, true); };
+  document.addEventListener("keydown", onSortKey);
+  root.querySelector(".view-switch")?.addEventListener("click", (e) => {
+    const b = e.target.closest("[data-view]");
+    if (!b || b.dataset.view === state.view) return;
+    state.view = b.dataset.view;
+    state.open = null;
+    savePref();
+    paintGrid();
+  });
   root.querySelectorAll(".f-filter").forEach((sel) =>
     sel.addEventListener("change", () => { state.filters[sel.dataset.field] = sel.value; paintGrid(); }));
 
@@ -281,7 +399,10 @@ export function mountShelf(root, cfg) {
     runSearch(q);
   });
   input.addEventListener("keydown", (e) => { if (e.key === "Escape") { input.value = ""; closePop(); } });
-  const outside = (e) => { if (!e.target.closest(".search")) closePop(); };
+  const outside = (e) => {
+    if (!e.target.closest(".search")) closePop();
+    if (sortPop && !sortPop.hidden && !e.target.closest(".sort-menu")) setSortOpen(false);
+  };
   document.addEventListener("pointerdown", outside);
 
   pop.addEventListener("click", async (e) => {
@@ -378,7 +499,10 @@ export function mountShelf(root, cfg) {
   });
   paintGrid();
 
-  return () => document.removeEventListener("pointerdown", outside);
+  return () => {
+    document.removeEventListener("pointerdown", outside);
+    document.removeEventListener("keydown", onSortKey);
+  };
 }
 
 export { byDate };

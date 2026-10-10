@@ -17,6 +17,9 @@ const typeLabel = (t) => TYPES.find((x) => x.v === t)?.l || "";
 // La de Cover Art Archive (coverUrl) queda de respaldo.
 const caaThumb = (x) => (x.coverUrl || "").replace(/front-500$/, "front-250");
 
+const az = (a = "", b = "") => a.localeCompare(b, "es", { sensitivity: "base" });
+const byAdded = (a, b) => (a.addedAt || "").localeCompare(b.addedAt || "");
+
 // Discos guardados sin coverFast: se buscan en Deezer de a dos (para no pasar
 // su límite de pedidos) y se guardan; si no está, se marca para no reintentar.
 let backfilling = false;
@@ -90,16 +93,21 @@ export function render(root, { title = "Música", back } = {}) {
       : x.coverFast ? deezerCoverSize(x.coverFast, 250) : caaThumb(x)),
     sub: (x) => [x.artist, fmtShort(x.releaseDate)].filter(Boolean).join(" · "),
     resultSub: (r) => [r.artist, r.releaseDate?.slice(0, 4), typeLabel(r.type)].filter(Boolean).join(" · "),
-    sorts: [
-      ["release-desc", "lanzamiento ↓", byDate(-1)],
-      ["release-asc", "lanzamiento ↑", byDate(1)],
-      ["artist", "artista a–z", (a, b) => (a.artist || "").localeCompare(b.artist || "") || byDate(1)(a, b)],
-      ["added", "agregados", (a, b) => (b.addedAt || "").localeCompare(a.addedAt || "")],
+    // Botón de filtro: [clave, nombre, orden, agrupar?]. Reciente/Antiguo es
+    // por fecha en que lo agregaste; dentro de un artista, por lanzamiento.
+    sortMenu: [
+      ["recent", "Reciente", (a, b) => byAdded(b, a)],
+      ["old", "Antiguo", byAdded],
+      ["artist", "Artista", (a, b) => az(a.artist, b.artist) || byDate(1)(a, b)],
+      ["title", "Alfabético", (a, b) => az(a.title, b.title)],
+      ["genre", "Género", (a, b) => az(a.title, b.title), (x) => x.genre],
     ],
-    filters: [
-      { field: "genre", label: "Género", all: "todo género" },
-      { field: "artist", label: "Artista", all: "todo artista" },
-    ],
+    filters: [],
+    // Vista simple: portada cuadrada con título y artista · año debajo.
+    squareCards: true,
+    cardSub: (x) => [x.artist, x.releaseDate?.slice(0, 4)].filter(Boolean).join(" · "),
+    // Vista lista: portada chica (250 px) en vez de la de 500.
+    listImg: (x) => x.coverCustom || (x.coverFast ? deezerCoverSize(x.coverFast, 250) : caaThumb(x)),
     pickers: async (r) => [
       { field: "type", label: "Tipo", options: TYPES, preselect: false, initial: r.type },
       { field: "genre", label: "Género", options: r.genres.map((v) => ({ v, l: v })), preselect: true, loading: r.loadingGenres !== false },
