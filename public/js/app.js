@@ -1,7 +1,8 @@
 import { initStore, onUser, signIn, signOut, isLocal, list, clearCache } from "./store.js";
 import { dayKey } from "./lib/dates.js";
-import { esc, openSheet } from "./lib/ui.js";
-import { hapticsOn, setHaptics, MOTIONS, motion, setMotion, applyMotion } from "./lib/prefs.js";
+import { esc } from "./lib/ui.js";
+import { applyMotion, startTheme } from "./lib/prefs.js";
+import { mountProfile, setProfile } from "./lib/profile.js";
 import { isCollectionId } from "./lib/collections.js";
 import { startLuz } from "./lib/luz.js";
 
@@ -26,80 +27,16 @@ let started = false;
 let lastDay = dayKey();
 
 // ---------- navegación ----------
+// El menú tiene solo las secciones; tema, ajustes y salir están en el panel
+// del perfil (burbuja abajo a la izquierda, ver lib/profile.js).
 function buildNav() {
-  nav.innerHTML = `
-    <ul>${ROUTES.map(([k, l], i) => `<li style="--i:${i}"><a href="#/${k}" data-route="${k}">${l}</a></li>`).join("")}</ul>
-    <div class="nav-foot mono">
-      <button class="nav-theme"></button>
-      <button class="nav-settings">ajustes</button>
-      ${isLocal ? `<span class="muted">modo local</span>` : `<button class="nav-out">salir</button>`}
-    </div>`;
-  nav.querySelector(".nav-out")?.addEventListener("click", async () => { await signOut(); location.hash = ""; });
-  nav.querySelector(".nav-theme").addEventListener("click", () =>
-    setTheme(document.documentElement.dataset.theme === "light" ? "dark" : "light"));
-  nav.querySelector(".nav-settings").addEventListener("click", () => { setNavOpen(false); openSettings(); });
+  nav.innerHTML = `<ul>${ROUTES.map(([k, l], i) => `<li style="--i:${i}"><a href="#/${k}" data-route="${k}">${l}</a></li>`).join("")}</ul>`;
   nav.addEventListener("click", (e) => { if (e.target.closest("a")) setNavOpen(false); });
-  paintThemeButton();
 }
 
-// ---------- ajustes (de este dispositivo) ----------
-function openSettings() {
-  const sh = openSheet(`
-    <div class="settings">
-      <h2>Ajustes</h2>
-      <div class="setting">
-        <div>
-          <p class="setting-name">Háptica</p>
-          <p class="mono muted setting-hint">Vibración breve al marcar un hábito.</p>
-        </div>
-        <button class="toggle" role="switch" data-set="haptics" aria-checked="${hapticsOn()}" aria-label="Háptica"></button>
-      </div>
-      <div class="setting setting-col">
-        <div>
-          <p class="setting-name">Movimiento</p>
-          <p class="mono muted setting-hint">Suave quita los desplazamientos; quieto deja todo estático, también la ilustración de puntos.</p>
-        </div>
-        <div class="chips" role="radiogroup" aria-label="Movimiento">
-          ${MOTIONS.map(([k, l]) => `<button class="chip mono" role="radio" data-set-motion="${k}" aria-checked="${motion() === k}">${l}</button>`).join("")}
-        </div>
-      </div>
-      <div class="detail-actions"><button class="btn btn-ghost" data-close>Listo</button></div>
-    </div>`);
-  sh.el.addEventListener("click", (e) => {
-    const m = e.target.closest("[data-set-motion]");
-    if (m) {
-      setMotion(m.dataset.setMotion);
-      sh.el.querySelectorAll("[data-set-motion]").forEach((b) => b.setAttribute("aria-checked", b === m));
-      return;
-    }
-    const t = e.target.closest('[data-set="haptics"]');
-    if (!t) return;
-    const on = t.getAttribute("aria-checked") !== "true";
-    setHaptics(on);
-    t.setAttribute("aria-checked", on);
-  });
-}
-
-// ---------- tema claro / oscuro ----------
-const THEME_BG = { dark: "#0c0b0a", light: "#f3efe7" };
-let themeTimer;
-
-function paintThemeButton() {
-  const light = document.documentElement.dataset.theme === "light";
-  const b = nav.querySelector(".nav-theme");
-  b.textContent = light ? "modo oscuro" : "modo claro";
-  b.setAttribute("aria-label", light ? "Cambiar a modo oscuro" : "Cambiar a modo claro");
-  document.querySelector('meta[name="theme-color"]')?.setAttribute("content", THEME_BG[light ? "light" : "dark"]);
-}
-
-function setTheme(t) {
-  const root = document.documentElement;
-  root.classList.add("theming");
-  root.dataset.theme = t;
-  try { localStorage.setItem("mj:theme", t); } catch {}
-  paintThemeButton();
-  clearTimeout(themeTimer);
-  themeTimer = setTimeout(() => root.classList.remove("theming"), 500);
+async function logOut() {
+  await signOut();
+  location.hash = "";
 }
 
 // Menú: el botón dice "Menú" (aria-expanded indica si está abierto). Abierto,
@@ -118,7 +55,7 @@ document.addEventListener("keydown", (e) => {
   if (!isNavOpen()) return;
   if (e.key === "Escape") return setNavOpen(false, { focus: true });
   if (e.key !== "Tab") return;
-  const items = [navToggle, ...nav.querySelectorAll("a, button")];
+  const items = [navToggle, ...nav.querySelectorAll("a")];
   const i = items.indexOf(document.activeElement);
   const next = e.shiftKey ? (i <= 0 ? items.length - 1 : i - 1) : (i === items.length - 1 ? 0 : i + 1);
   e.preventDefault();
@@ -256,8 +193,10 @@ const rememberSignedIn = (v) => { if (isLocal) return; try { v ? localStorage.se
 
 async function boot() {
   startLuz();
+  startTheme();
   applyMotion();
   buildNav();
+  mountProfile({ isLocal, signOut: logOut });
   // El código de la sección se baja al mismo tiempo que Firebase.
   currentRoute()[2]().catch(() => {});
   let optimistic = isLocal || wasSignedIn();
@@ -274,6 +213,7 @@ async function boot() {
     if (!user) {
       optimistic = false;
       rememberSignedIn(false);
+      setProfile(null);
       renderSeq++; // cancela una sección que se estuviera dibujando
       cleanup?.();
       cleanup = null;
@@ -282,6 +222,7 @@ async function boot() {
       return showLogin();
     }
     currentUid = user.uid;
+    if (!isLocal) setProfile(user);
     rememberSignedIn(true);
     if (optimistic) optimistic = false; // ya se está mostrando
     else start();

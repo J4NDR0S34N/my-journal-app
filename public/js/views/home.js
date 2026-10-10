@@ -1,10 +1,9 @@
 import { createSky } from "../lib/sky.js";
 import { dayKey, isDaytime, fmtLong, fmtTime, fmtShort } from "../lib/dates.js";
-import { list, set } from "../store.js";
-import { HABITS } from "../habits.js";
-import { esc, debounce } from "../lib/ui.js";
-import { preguntaDelDia } from "../lib/umbral.js";
-import { presenceStats, presenceText, weekDots, weekLabel } from "../lib/presence.js";
+import { list } from "../store.js";
+import { HABITS, computeStreak, welcomeBack } from "../habits.js";
+import { esc, plural } from "../lib/ui.js";
+import { firstName, onProfile } from "../lib/profile.js";
 import { activitySince } from "../lib/activity.js";
 import { motion, onMotion } from "../lib/prefs.js";
 
@@ -66,17 +65,9 @@ export async function render(root) {
         <div class="home-main">
           <p class="mono label home-date"></p>
           <h1 class="home-greet"></h1>
-          <p class="mono home-welcome" hidden>Bienvenido de vuelta</p>
-          <form class="umbral" autocomplete="off">
-            <label class="umbral-q" for="umbral-in"></label>
-            <input id="umbral-in" class="umbral-in" type="text" maxlength="280" enterkeyhint="done" placeholder="Una línea alcanza…" />
-            <span class="umbral-ok mono muted" aria-live="polite"></span>
-          </form>
+          <p class="mono home-welcome" hidden></p>
           <p class="mono home-status muted"></p>
-          <a class="presence mono" href="#/estadistica" hidden>
-            <span class="presence-txt"></span>
-            <span class="presence-week" role="img"></span>
-          </a>
+          <a class="streak mono" href="#/estadistica" hidden></a>
         </div>
       </div>
       <section class="activity" aria-labelledby="act-h">
@@ -96,52 +87,34 @@ export async function render(root) {
     day = isDaytime(now);
     sky.setDay(day);
     $(".home-date").textContent = `${fmtLong(now)} · ${fmtTime(now)}`;
-    $(".home-greet").textContent = greeting(now);
+    paintNames(now);
     $(".foot-ico").innerHTML = day ? SUN : MOON;
     $(".foot-txt").textContent = `© ${now.getFullYear()} · ${day ? FOOT.day : FOOT.night}`;
   }
+  // Saludo con el nombre de la cuenta de Google: "Buenas tardes, Alejandro".
+  let showWelcome = false;
+  function paintNames(now = new Date()) {
+    const name = firstName();
+    $(".home-greet").textContent = name ? `${greeting(now)}, ${name}` : greeting(now);
+    $(".home-welcome").textContent = name ? `Bienvenido de vuelta, ${name}` : "Bienvenido de vuelta";
+    $(".home-welcome").hidden = !showWelcome;
+  }
   tick();
   const timer = setInterval(tick, 20_000);
+  const offProfile = onProfile(() => paintNames());
 
-  // ---------- umbral: pregunta del día ----------
+  // ---------- hoy y racha ----------
   const today = dayKey();
-  const input = $(".umbral-in");
-  $(".umbral-q").textContent = preguntaDelDia(today);
-  let saved = "", touched = false, okTimer;
-  async function save() {
-    const v = input.value.trim();
-    if (v === saved) return;
-    try {
-      await set("days", today, { respuesta: v });
-      saved = v;
-      const ok = $(".umbral-ok");
-      ok.textContent = "guardado";
-      clearTimeout(okTimer);
-      okTimer = setTimeout(() => (ok.textContent = ""), 1800);
-      list("days").then(paintDays); // la respuesta también cuenta como presencia
-    } catch (e) {
-      $(".umbral-ok").textContent = "sin guardar, se reintenta al escribir";
-      console.error(e);
-    }
-  }
-  const saveSoon = debounce(save, 1200);
-  input.addEventListener("input", () => { touched = true; saveSoon(); });
-  input.addEventListener("change", save);
-  $(".umbral").addEventListener("submit", (e) => { e.preventDefault(); save(); input.blur(); });
-
-  // ---------- hoy y presencia ----------
   function paintDays(days) {
     if (!root.isConnected) return;
     const doc = days.find((d) => d.id === today);
-    if (!touched) input.value = saved = doc?.respuesta || "";
     const done = HABITS.filter((x) => doc?.h?.[x.key]).map((x) => x.done);
     $(".home-status").textContent = `hoy: ${done.length ? done.join(", ") : "nada marcado todavía"}`;
-    const p = presenceStats(days, today);
-    $(".presence-txt").textContent = presenceText(p);
-    $(".presence-week").textContent = weekDots(p);
-    $(".presence-week").setAttribute("aria-label", weekLabel(p));
-    $(".presence").hidden = false;
-    $(".home-welcome").hidden = !p.welcomeBack;
+    const s = $(".streak");
+    s.textContent = `🔥 ${plural(computeStreak(days, today, dayKey), "día", "días")}`;
+    s.hidden = false;
+    showWelcome = welcomeBack(days, today, dayKey);
+    paintNames();
   }
   list("days").then(paintDays).catch(() => {});
 
@@ -156,5 +129,5 @@ export async function render(root) {
     $(".act-body").innerHTML = `<p class="act-empty muted">No se pudo cargar la actividad.</p>`;
   });
 
-  return () => { clearInterval(timer); clearTimeout(okTimer); offMotion(); sky.destroy(); save(); };
+  return () => { clearInterval(timer); offMotion(); offProfile(); sky.destroy(); };
 }

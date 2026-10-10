@@ -1,4 +1,4 @@
-// Hábitos y stats.
+// Hábitos, stats y racha.
 
 // done: cómo se lee en Inicio ("hoy: corriste, leíste").
 export const HABITS = [
@@ -40,3 +40,31 @@ export function computeStats(days) {
 }
 
 export const countDone = (h = {}) => HABITS.filter((x) => h[x.key]).length;
+
+// Un día cuenta para la racha si tiene al menos 1 hábito. Si hoy todavía
+// está vacío, la racha no se corta: se cuenta desde ayer.
+export const STREAK_MIN = 1;
+const shift = (key, n, dayKeyFn) => {
+  const d = new Date(`${key}T12:00:00`);
+  d.setDate(d.getDate() + n);
+  return dayKeyFn(d);
+};
+
+export function computeStreak(days, todayKey, dayKeyFn) {
+  const map = new Map(days.map((d) => [d.id, d.h || {}]));
+  const ok = (k) => countDone(map.get(k)) >= STREAK_MIN;
+  let k = ok(todayKey) ? todayKey : shift(todayKey, -1, dayKeyFn);
+  let n = 0;
+  while (ok(k)) {
+    n++;
+    k = shift(k, -1, dayKeyFn);
+  }
+  return n;
+}
+
+// "Bienvenido de vuelta": ayer sin hábitos, pero hubo alguno antes.
+export function welcomeBack(days, todayKey, dayKeyFn) {
+  const yesterday = shift(todayKey, -1, dayKeyFn);
+  const done = days.filter((d) => countDone(d.h) >= STREAK_MIN).map((d) => d.id);
+  return !done.includes(yesterday) && done.some((k) => k < yesterday);
+}

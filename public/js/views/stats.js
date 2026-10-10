@@ -1,7 +1,7 @@
-import { HABITS, BAR_SEGMENTS, computeStats, countDone } from "../habits.js";
+import { HABITS, BAR_SEGMENTS, computeStats, computeStreak, countDone } from "../habits.js";
 import { dayKey, MONTHS, WEEKDAYS } from "../lib/dates.js";
 import { list } from "../store.js";
-import { presenceStats, presenceText, weekDots, weekLabel } from "../lib/presence.js";
+import { plural } from "../lib/ui.js";
 import { habitGrid, bindHabitGrid } from "./registro.js";
 
 export async function render(root) {
@@ -16,7 +16,7 @@ export async function render(root) {
       <div class="hud">
         <header class="hud-head">
           <h1>Estadística</h1>
-          <span class="presence mono"><span class="presence-txt"></span><span class="presence-week" role="img"></span></span>
+          <span class="streak"></span>
         </header>
         <div class="hud-rows"></div>
       </div>
@@ -35,10 +35,7 @@ export async function render(root) {
 
   function paintHud() {
     const all = [...byId.values()];
-    const p = presenceStats(all);
-    $(".presence-txt").textContent = presenceText(p);
-    $(".presence-week").textContent = weekDots(p);
-    $(".presence-week").setAttribute("aria-label", weekLabel(p));
+    $(".streak").textContent = `🔥 ${plural(computeStreak(all, dayKey(), dayKey), "día", "días")}`;
     $(".hud-rows").innerHTML = computeStats(all).map((s) => `
       <div class="stat">
         <div class="stat-top">

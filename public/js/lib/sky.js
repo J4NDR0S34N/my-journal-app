@@ -44,10 +44,8 @@ function hash(i) {
   return ((x ^ (x >>> 16)) >>> 0) / 4294967296;
 }
 
-// Cuadros por segundo según el ajuste de movimiento (tope: 30 fps). En
-// "suave" además el tiempo corre a la mitad; en "quieto" se dibuja un cuadro.
-const FRAME_MS = { full: 60, soft: 120 };
-const SPEED = { full: 1, soft: 0.5 };
+// Tope de 30 fps (hoy ≈16). En movimiento "quieto" se dibuja un solo cuadro.
+const FRAME_MS = 60;
 
 export function createSky(canvas, { day, motion = "full" }) {
   const ctx = canvas.getContext("2d");
@@ -208,9 +206,9 @@ export function createSky(canvas, { day, motion = "full" }) {
   function loop(t) {
     raf = 0;
     if (!animating()) { prev = null; return; }
-    if (prev !== null) clock += Math.min(t - prev, 100) * SPEED[motion];
+    if (prev !== null) clock += Math.min(t - prev, 100);
     prev = t;
-    if (t - last >= FRAME_MS[motion]) { draw(clock); last = t; }
+    if (t - last >= FRAME_MS) { draw(clock); last = t; }
     raf = requestAnimationFrame(loop);
   }
   const kick = () => { if (animating() && !raf) raf = requestAnimationFrame(loop); };
