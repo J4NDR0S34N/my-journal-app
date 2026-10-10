@@ -2,6 +2,7 @@ import { initStore, onUser, signIn, signOut, isLocal, list, clearCache } from ".
 import { dayKey } from "./lib/dates.js";
 import { esc } from "./lib/ui.js";
 import { isCollectionId } from "./lib/collections.js";
+import { startLuz } from "./lib/luz.js";
 
 const ROUTES = [
   ["inicio", "Inicio", () => import("./views/home.js")],
@@ -196,6 +197,7 @@ const wasSignedIn = () => { try { return localStorage.getItem(SIGNED) === "1"; }
 const rememberSignedIn = (v) => { if (isLocal) return; try { v ? localStorage.setItem(SIGNED, "1") : localStorage.removeItem(SIGNED); } catch {} };
 
 async function boot() {
+  startLuz();
   buildNav();
   // El código de la sección se baja al mismo tiempo que Firebase.
   currentRoute()[2]().catch(() => {});

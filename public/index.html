@@ -9,8 +9,10 @@
   <meta name="theme-color" content="#0c0b0a" />
   <meta name="color-scheme" content="dark light" />
   <script>
-    // Aplica el tema guardado antes de pintar (evita un destello del otro tema).
+    // Aplica el tema guardado y la luz del día antes de pintar (evita un
+    // destello). Las mismas horas que setLuz() en js/lib/luz.js.
     try { document.documentElement.dataset.theme = localStorage.getItem("mj:theme") || "dark"; } catch (e) {}
+    (function (h) { document.documentElement.dataset.luz = h >= 5 && h < 8 ? "alba" : h >= 8 && h < 17 ? "dia" : h >= 17 && h < 20 ? "tarde" : "noche"; })(new Date().getHours());
   </script>
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -28,6 +30,8 @@
   <link rel="modulepreload" href="js/lib/dates.js" />
   <link rel="modulepreload" href="js/lib/ui.js" />
   <link rel="modulepreload" href="js/lib/activity.js" />
+  <link rel="modulepreload" href="js/lib/collections.js" />
+  <link rel="modulepreload" href="js/lib/luz.js" />
   <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/12.3.0/firebase-app.js" />
   <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/12.3.0/firebase-firestore.js" />
   <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/12.3.0/firebase-auth.js" />
