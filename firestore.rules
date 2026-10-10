@@ -4,18 +4,68 @@ rules_version = '2';
 // - El dueño usa las colecciones de la raíz (days, games, music, …).
 // - Cualquier otra cuenta de Google usa users/{su uid}/… y nada más.
 // El dueño no puede ver los diarios de los demás, ni ellos el suyo.
+// Las colecciones del portal (collections) y sus ítems (collectionItems)
+// además validan sus campos. Pruebas: tests/rules.mjs (ver README).
 service cloud.firestore {
   match /databases/{database}/documents {
     function isOwner() {
       return request.auth != null && request.auth.uid == "8k9Kpn8jhaTJgNSVsgc6LFXu0l53";
     }
-
-    match /users/{uid}/{document=**} {
-      allow read, write: if request.auth != null && request.auth.uid == uid;
+    function isSelf(uid) {
+      return request.auth != null && request.auth.uid == uid;
     }
 
+    // { name, kind: "games" | "music" | "custom", order, createdAt }
+    function validCollection() {
+      let d = request.resource.data;
+      return d.name is string && d.name.size() > 0 && d.name.size() <= 60
+        && d.kind in ["games", "music", "custom"]
+        && (!("order" in d) || d.order is number);
+    }
+    // El tipo no cambia; las de fábrica (games, music) no se borran.
+    function collectionRules(allowed) {
+      return allowed && (
+        request.method == "get" || request.method == "list"
+        || (request.method == "create" && validCollection())
+        || (request.method == "update" && validCollection() && request.resource.data.kind == resource.data.kind)
+        || (request.method == "delete" && resource.data.kind == "custom"));
+    }
+
+    // { collectionId, title, coverUrl?, note?, status: "owned" | "wishlist", addedAt }
+    function validItem() {
+      let d = request.resource.data;
+      return d.collectionId is string && d.collectionId.matches("c-.+")
+        && d.title is string && d.title.size() > 0 && d.title.size() <= 200
+        && d.status in ["owned", "wishlist"]
+        && (!("note" in d) || (d.note is string && d.note.size() <= 2000))
+        && (!("coverUrl" in d) || d.coverUrl is string);
+    }
+    function itemRules(allowed) {
+      return allowed && (
+        request.method in ["get", "list", "delete"]
+        || (request.method in ["create", "update"] && validItem()));
+    }
+
+    // ---------- otras cuentas: users/{uid}/… ----------
+    match /users/{uid}/collections/{id} {
+      allow read, write: if collectionRules(isSelf(uid));
+    }
+    match /users/{uid}/collectionItems/{id} {
+      allow read, write: if itemRules(isSelf(uid));
+    }
+    match /users/{uid}/{col}/{document=**} {
+      allow read, write: if isSelf(uid) && !(col in ["collections", "collectionItems"]);
+    }
+
+    // ---------- dueño: raíz ----------
+    match /collections/{id} {
+      allow read, write: if collectionRules(isOwner());
+    }
+    match /collectionItems/{id} {
+      allow read, write: if itemRules(isOwner());
+    }
     match /{col}/{document=**} {
-      allow read, write: if isOwner() && col != "users";
+      allow read, write: if isOwner() && !(col in ["users", "collections", "collectionItems"]);
     }
   }
 }

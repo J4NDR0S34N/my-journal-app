@@ -7,3 +7,6 @@ ui-debug.log*
 # Sistema
 .DS_Store
 Thumbs.db
+
+# Pruebas
+tests/node_modules/
