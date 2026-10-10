@@ -1,6 +1,7 @@
 import { initStore, onUser, signIn, signOut, isLocal, list, clearCache } from "./store.js";
 import { dayKey } from "./lib/dates.js";
-import { esc } from "./lib/ui.js";
+import { esc, openSheet } from "./lib/ui.js";
+import { hapticsOn, setHaptics } from "./lib/prefs.js";
 import { isCollectionId } from "./lib/collections.js";
 import { startLuz } from "./lib/luz.js";
 
@@ -29,13 +30,38 @@ function buildNav() {
     <ul>${ROUTES.map(([k, l], i) => `<li style="--i:${i}"><a href="#/${k}" data-route="${k}">${l}</a></li>`).join("")}</ul>
     <div class="nav-foot mono">
       <button class="nav-theme"></button>
+      <button class="nav-settings">ajustes</button>
       ${isLocal ? `<span class="muted">modo local</span>` : `<button class="nav-out">salir</button>`}
     </div>`;
   nav.querySelector(".nav-out")?.addEventListener("click", async () => { await signOut(); location.hash = ""; });
   nav.querySelector(".nav-theme").addEventListener("click", () =>
     setTheme(document.documentElement.dataset.theme === "light" ? "dark" : "light"));
+  nav.querySelector(".nav-settings").addEventListener("click", () => { setNavOpen(false); openSettings(); });
   nav.addEventListener("click", (e) => { if (e.target.closest("a")) setNavOpen(false); });
   paintThemeButton();
+}
+
+// ---------- ajustes (de este dispositivo) ----------
+function openSettings() {
+  const sh = openSheet(`
+    <div class="settings">
+      <h2>Ajustes</h2>
+      <div class="setting">
+        <div>
+          <p class="setting-name">Háptica</p>
+          <p class="mono muted setting-hint">Vibración breve al marcar un hábito.</p>
+        </div>
+        <button class="toggle" role="switch" data-set="haptics" aria-checked="${hapticsOn()}" aria-label="Háptica"></button>
+      </div>
+      <div class="detail-actions"><button class="btn btn-ghost" data-close>Listo</button></div>
+    </div>`);
+  sh.el.addEventListener("click", (e) => {
+    const t = e.target.closest('[data-set="haptics"]');
+    if (!t) return;
+    const on = t.getAttribute("aria-checked") !== "true";
+    setHaptics(on);
+    t.setAttribute("aria-checked", on);
+  });
 }
 
 // ---------- tema claro / oscuro ----------

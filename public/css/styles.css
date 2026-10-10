@@ -416,11 +416,15 @@ a.presence:hover { border-color: var(--muted); }
   user-select: none;
 }
 .habit:active { transform: scale(0.96); }
+/* el checkbox real cubre la fila entera y es invisible (ver habitGrid) */
+.habit { position: relative; cursor: pointer; }
+.habit-input { position: absolute; inset: 0; z-index: 1; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
+.habit:has(.habit-input:focus-visible) { outline: 1px dashed var(--ink-2); outline-offset: 3px; }
 .habit-emo { font-size: 32px; line-height: 1; filter: grayscale(1); opacity: 0.45; transition: 0.15s; }
 .habit-lbl { font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
-.habit[aria-pressed="true"] { background: var(--ink); border-color: var(--ink); }
-.habit[aria-pressed="true"] .habit-emo { filter: none; opacity: 1; }
-.habit[aria-pressed="true"] .habit-lbl { color: var(--paper); font-weight: 500; }
+.habit.on { background: var(--ink); border-color: var(--ink); }
+.habit.on .habit-emo { filter: none; opacity: 1; }
+.habit.on .habit-lbl { color: var(--paper); font-weight: 500; }
 @media (hover: hover) { .habit:hover { border-color: var(--faint); } }
 
 .habits.small { gap: 6px; }
@@ -909,7 +913,7 @@ a.presence:hover { border-color: var(--muted); }
   }
   .habit:hover .habit-emo { filter: none; opacity: 1; transform: scale(1.12); }
   .habit-emo { transition: filter 0.25s, opacity 0.25s, transform 0.25s var(--ease); }
-  .habit[aria-pressed="true"]:hover { box-shadow: 0 8px 24px var(--shadow), 0 0 0 1px var(--ink); }
+  .habit.on:hover { box-shadow: 0 8px 24px var(--shadow), 0 0 0 1px var(--ink); }
   .habit:hover:active { transform: scale(1.01); }
 }
 
@@ -1085,13 +1089,13 @@ main, .sheet-wrap { font-family: var(--sans); }
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
   transition: transform 0.3s var(--ease);
 }
-.habits.list .habit[aria-pressed="true"] { background: var(--paper-2); border-color: var(--faint); }
-.habits.list .habit[aria-pressed="true"] .habit-lbl { color: var(--ink); font-weight: 600; }
-.habits.list .habit[aria-pressed="true"] .habit-switch { background: var(--ink); }
-.habits.list .habit[aria-pressed="true"] .habit-switch::after { transform: translateX(20px); }
+.habits.list .habit.on { background: var(--paper-2); border-color: var(--faint); }
+.habits.list .habit.on .habit-lbl { color: var(--ink); font-weight: 600; }
+.habits.list .habit.on .habit-switch { background: var(--ink); }
+.habits.list .habit.on .habit-switch::after { transform: translateX(20px); }
 @media (hover: hover) {
   .habits.list .habit:hover { transform: translateX(4px); background: var(--paper-3); box-shadow: none; }
-  .habits.list .habit[aria-pressed="true"]:hover { box-shadow: none; }
+  .habits.list .habit.on:hover { box-shadow: none; }
   .habits.list .habit:hover:active { transform: translateX(2px) scale(0.99); }
 }
 
@@ -1803,3 +1807,52 @@ html[data-theme="light"] .row-likes { color: #c8102e; } /* contraste AA sobre pa
 @media (hover: hover) and (pointer: fine) {
   .tile.row:hover { transform: none; box-shadow: none; background: var(--paper-2); padding-left: 10px; }
 }
+
+/* =====================================================================
+   AJUSTES (hoja desde el menú)
+   ===================================================================== */
+.settings h2 { margin-bottom: 12px; }
+.setting {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 64px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+}
+.setting-name { margin: 0; font-size: var(--step-1); }
+.setting-hint { margin: 2px 0 0; font-size: 11px; line-height: 1.5; }
+.setting .chips { flex: none; }
+/* interruptor con el mismo dibujo que los de Registro */
+.toggle {
+  flex: none;
+  position: relative;
+  width: 52px;
+  height: 44px;
+}
+.toggle::before {
+  content: "";
+  position: absolute;
+  left: 2px;
+  top: 8px;
+  width: 48px;
+  height: 28px;
+  border-radius: 99px;
+  background: var(--faint);
+  transition: background-color 0.3s var(--ease);
+}
+.toggle::after {
+  content: "";
+  position: absolute;
+  left: 5px;
+  top: 11px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--paper);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+  transition: transform 0.3s var(--ease);
+}
+.toggle[aria-checked="true"]::before { background: var(--ink); }
+.toggle[aria-checked="true"]::after { transform: translateX(20px); }
