@@ -1,4 +1,4 @@
-import { initStore, onUser, signIn, signOut, isLocal, list, clearCache } from "./store.js";
+import { initStore, onUser, signIn, signOut, isLocal, list, clearCache, onRemoteChange, usedCollections, resetUsed } from "./store.js";
 import { dayKey } from "./lib/dates.js";
 import { esc, toast } from "./lib/ui.js";
 import { applyMotion, startTheme } from "./lib/prefs.js";
@@ -8,8 +8,7 @@ import { startLuz } from "./lib/luz.js";
 
 const ROUTES = [
   ["inicio", "Inicio", () => import("./views/home.js")],
-  ["registro", "Registro", () => import("./views/registro.js")],
-  ["estadistica", "Estadística", () => import("./views/stats.js")],
+  ["progreso", "Progreso", () => import("./views/progreso.js")],
   ["coleccion", "Colección", () => import("./views/coleccion.js")],
   ["misc", "Miscelánea", () => import("./views/misc.js")],
   ["notas", "Notas", () => import("./views/notas.js")],
@@ -80,10 +79,11 @@ const currentRoute = () => ROUTES.find((r) => r[0] === hashParts()[0]) || ROUTES
 const routeParams = () => hashParts().slice(1).map((p) => decodeURIComponent(p));
 
 // Enlaces viejos que siguen funcionando:
-//   #/stats -> #/estadistica · #/musica -> #/coleccion/musica
+//   #/registro -> #/inicio (los hábitos se marcan en Inicio)
+//   #/stats y #/estadistica -> #/progreso · #/musica -> #/coleccion/musica
 //   #/coleccion/{idJuego} (antes de que Colección tuviera varias colecciones)
 //     -> #/coleccion/videojuegos/{idJuego}
-const MOVED = { stats: "estadistica", musica: "coleccion/musica" };
+const MOVED = { registro: "inicio", stats: "progreso", estadistica: "progreso", musica: "coleccion/musica" };
 function redirectFor() {
   const [key, sub, ...rest] = hashParts();
   if (MOVED[key]) return `#/${[MOVED[key], sub, ...rest].filter(Boolean).join("/")}`;
@@ -99,33 +99,43 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // Transición: la vista actual se desvanece, se carga la nueva por detrás y
 // entra con un fade + leve desplazamiento (ver .view-host en styles.css).
-async function route() {
+// quiet: redibujo por un cambio llegado de otro dispositivo. La sección nueva
+// se arma por detrás y reemplaza a la vieja sin transición ni salto de scroll.
+async function route({ quiet = false } = {}) {
   const to = redirectFor();
   if (to) return location.replace(to); // vuelve a entrar por hashchange
   const [key, label, load] = currentRoute();
   const params = routeParams();
   const seq = ++renderSeq;
-  setNavOpen(false);
+  if (!quiet) setNavOpen(false);
+  resetUsed();
   nav.querySelectorAll("a").forEach((a) =>
     a.dataset.route === key ? a.setAttribute("aria-current", "page") : a.removeAttribute("aria-current"));
   navCurrent.textContent = label;
   document.title = key === "inicio" ? "My Journal" : `${label} — My Journal`;
   const old = view.firstElementChild;
-  old?.classList.add("leaving");
+  if (!quiet) old?.classList.add("leaving");
   try {
-    const [mod] = await Promise.all([load(), old ? sleep(220) : null]);
+    const [mod] = await Promise.all([load(), old && !quiet ? sleep(220) : null]);
     if (seq !== renderSeq) return;
     cleanup?.();
     cleanup = null;
     document.body.dataset.route = styleKey(key, params);
-    scrollTo(0, 0);
+    const y = scrollY;
+    if (!quiet) scrollTo(0, 0);
     const host = document.createElement("div");
-    host.className = "view-host";
-    view.replaceChildren(host);
+    host.className = quiet ? "view-host in quiet staging" : "view-host";
+    if (quiet) view.append(host); else view.replaceChildren(host);
     const rendered = Promise.resolve(mod.render(host, ...params));
     // Esperamos a que la vista tenga contenido (máx. 350 ms) antes de mostrarla.
     await Promise.race([rendered.catch(() => {}), sleep(350)]);
-    if (seq === renderSeq) host.classList.add("in");
+    if (seq === renderSeq) {
+      if (quiet) {
+        [...view.children].forEach((el) => el !== host && el.remove());
+        host.classList.remove("staging");
+        scrollTo(0, y);
+      } else host.classList.add("in");
+    }
     prefetchViews();
     const c = await rendered;
     if (seq !== renderSeq) { typeof c === "function" && c(); return; }
@@ -136,6 +146,29 @@ async function route() {
     view.innerHTML = `<section class="page"><p class="mono muted">Algo falló al cargar esta sección.</p></section>`;
   }
 }
+
+// ---------- tiempo real ----------
+// Si otro dispositivo cambia algo que usa la sección abierta, se redibuja.
+// Espera si hay una hoja o el menú abiertos, si estás escribiendo o si quedó
+// texto sin guardar en algún campo (no se pierde un borrador); varios
+// cambios seguidos se juntan en un solo redibujo.
+let refreshPending = false, refreshTimer;
+const TEXT_FIELDS = "textarea, input:not([type=checkbox]):not([type=file]):not([type=radio])";
+const busy = () => isNavOpen() || document.querySelector(".sheet-wrap, .lightbox")
+  || (view.contains(document.activeElement) && document.activeElement.matches(`${TEXT_FIELDS}, select`))
+  || [...view.querySelectorAll(TEXT_FIELDS)].some((f) => f.value !== f.defaultValue)
+  || !!view.querySelector("[data-dirty]"); // ej. hábitos marcados sin guardar
+function refreshSoon() {
+  refreshPending = true;
+  clearTimeout(refreshTimer);
+  refreshTimer = setTimeout(function tryRefresh() {
+    if (!refreshPending || !started) return;
+    if (busy() || document.hidden) { refreshTimer = setTimeout(tryRefresh, 1000); return; }
+    refreshPending = false;
+    route({ quiet: true });
+  }, 150);
+}
+onRemoteChange((col) => { if (usedCollections().has(col)) refreshSoon(); });
 
 // Al volver a la app después de medianoche, refrescar la vista.
 document.addEventListener("visibilitychange", () => {
@@ -239,7 +272,7 @@ async function boot() {
     if (optimistic) optimistic = false; // ya se está mostrando
     else start();
     // Verifica permisos (y precarga la presencia) sin frenar la primera pantalla.
-    list("days").catch((e) => {
+    list("days", { track: false }).catch((e) => {
       if (e?.code === "permission-denied") showDenied();
       else console.error(e);
     });

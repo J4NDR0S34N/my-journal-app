@@ -1,8 +1,9 @@
 import { createSky } from "../lib/sky.js";
 import { dayKey, isDaytime, fmtLong, fmtTime, fmtShort } from "../lib/dates.js";
 import { list } from "../store.js";
-import { HABITS, computeStreak } from "../habits.js";
-import { esc, plural } from "../lib/ui.js";
+import { HABITS, countDone, computeStreak } from "../habits.js";
+import { habitButtons, bindHabitButtons, sameHabits, saveDay } from "../lib/habitPicker.js";
+import { esc, plural, toast } from "../lib/ui.js";
 import { firstName, onProfile } from "../lib/profile.js";
 import { activitySince } from "../lib/activity.js";
 import { motion, onMotion } from "../lib/prefs.js";
@@ -16,8 +17,8 @@ const FOOT = {
   night: "hecho a mano, una noche a la vez",
 };
 
-const WHERE = { habit: "Registro", games: "Colección", music: "Música", notes: "Notas", misc: "Miscelánea" };
-const ROUTE = { habit: "registro", games: "coleccion/videojuegos", music: "coleccion/musica", notes: "notas", misc: "misc" };
+const WHERE = { habit: "Hábitos", games: "Colección", music: "Música", notes: "Notas", misc: "Miscelánea" };
+const ROUTE = { habit: "inicio", games: "coleccion/videojuegos", music: "coleccion/musica", notes: "notas", misc: "misc" };
 
 function greeting(d) {
   const h = d.getHours();
@@ -65,10 +66,19 @@ export async function render(root) {
         <div class="home-main">
           <p class="mono label home-date"></p>
           <h1 class="home-greet"></h1>
-          <p class="mono home-status muted"></p>
-          <a class="streak mono" href="#/estadistica" hidden></a>
+          <a class="streak mono" href="#/progreso" hidden></a>
         </div>
       </div>
+      <section class="today" aria-labelledby="today-h">
+        <header class="today-head">
+          <h2 id="today-h" class="act-head">Hoy</h2>
+          <span class="today-count mono muted" aria-live="polite"></span>
+        </header>
+        <div class="today-pick">
+          <div class="today-grid">${habitButtons({})}</div>
+          <button class="btn today-save" disabled>Guardar</button>
+        </div>
+      </section>
       <section class="activity" aria-labelledby="act-h">
         <h2 id="act-h" class="act-head">Actividad reciente</h2>
         <div class="act-body"><p class="act-empty muted">cargando…</p></div>
@@ -99,15 +109,41 @@ export async function render(root) {
   const timer = setInterval(tick, 20_000);
   const offProfile = onProfile(() => paintNames());
 
-  // ---------- hoy y racha ----------
+  // ---------- hoy: hábitos (se guardan con Guardar) y racha ----------
   const today = dayKey();
+  const todayEl = $(".today"), saveBtn = $(".today-save");
+  let saved = {}, draft = {}, touched = false;
+  const paintToday = () => {
+    const dirty = !sameHabits(saved, draft);
+    // Con cambios sin guardar, la sección no se redibuja por cambios de otro dispositivo.
+    dirty ? (todayEl.dataset.dirty = "") : delete todayEl.dataset.dirty;
+    $(".today-count").textContent = `${countDone(draft)} de ${HABITS.length}${dirty ? " · sin guardar" : ""}`;
+    saveBtn.disabled = !dirty;
+  };
+  bindHabitButtons($(".today-grid"), draft, () => { touched = true; paintToday(); });
+  saveBtn.addEventListener("click", async () => {
+    saveBtn.disabled = true;
+    try {
+      saved = await saveDay(today, saved, draft);
+      paintToday();
+      toast("Guardado");
+      list("days").then(paintDays);
+    } catch (err) {
+      paintToday();
+      toast("No se pudo guardar");
+      console.error(err);
+    }
+  });
+
   function paintDays(days) {
     if (!root.isConnected) return;
-    const doc = days.find((d) => d.id === today);
-    const done = HABITS.filter((x) => doc?.h?.[x.key]).map((x) => x.done);
-    // Solo si hay algo marcado: "hoy: corriste, leíste".
-    $(".home-status").textContent = done.length ? `hoy: ${done.join(", ")}` : "";
-    $(".home-status").hidden = !done.length;
+    saved = { ...(days.find((d) => d.id === today)?.h || {}) };
+    if (!touched) {
+      Object.keys(draft).forEach((k) => delete draft[k]);
+      Object.assign(draft, saved);
+      $(".today-grid .habits").outerHTML = habitButtons(draft);
+    }
+    paintToday();
     const s = $(".streak");
     s.textContent = `🔥 ${plural(computeStreak(days, today, dayKey), "día", "días")}`;
     s.hidden = false;

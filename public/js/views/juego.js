@@ -35,7 +35,7 @@ export async function deleteGame(id) {
 export async function render(root, id, colName = "Videojuegos") {
   fromList = sessionStorage.getItem("mj:fromList") === "1";
   sessionStorage.removeItem("mj:fromList");
-  const game = await get("games", id);
+  const game = (await list("games")).find((g) => g.id === id);
   if (!game) {
     root.innerHTML = `
       <section class="page game">

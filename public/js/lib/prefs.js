@@ -7,29 +7,25 @@ const read = (k) => { try { return localStorage.getItem(k); } catch { return nul
 const write = (k, v) => { try { localStorage.setItem(k, v); } catch {} };
 
 // ---------- háptica ----------
-// Dos vías: el atributo `switch` de los checkbox de Registro (Safari iOS 18+
-// vibra solo al tocarlos) y navigator.vibrate(10) donde exista (Android).
-// Apagarla desactiva ambas.
+// Android: navigator.vibrate. iPhone (Safari iOS 18+): el "clic" de un
+// interruptor nativo invisible. Apagarla en ajustes desactiva ambas.
 const HAPTICS = "mj:haptics";
 export const hapticsOn = () => read(HAPTICS) !== "0";
-
-export function setHaptics(on) {
-  write(HAPTICS, on ? "1" : "0");
-  document.querySelectorAll(".habit-input").forEach((i) => i.toggleAttribute("switch", on));
-}
+export const setHaptics = (on) => write(HAPTICS, on ? "1" : "0");
 
 // La intensidad crece con los hábitos marcados (n de total). Android: la
 // vibración dura más (8 → 50 ms). iPhone no deja elegir la fuerza, así que
-// se suman "clics" del interruptor nativo: 1 hasta 3 hábitos, 2 desde 4,
-// 3 desde 7. Al desmarcar, un toque mínimo.
+// se suman "clics": 1 hasta 3 hábitos, 2 desde 4, 3 desde 7. Al desmarcar,
+// un toque mínimo (n = 0).
 export function haptic(n = 1, total = 9) {
   if (!hapticsOn()) return;
   if ("vibrate" in navigator) {
     navigator.vibrate(n ? Math.round(8 + 42 * Math.min(1, n / total)) : 6);
     return;
   }
-  if (!isIOS || !n) return;
-  const extra = n >= 7 ? 2 : n >= 4 ? 1 : 0; // el primero ya lo da el toque
+  if (!isIOS) return;
+  iosTick(); // el primero, dentro del toque
+  const extra = n >= 7 ? 2 : n >= 4 ? 1 : 0;
   for (let i = 1; i <= extra; i++) setTimeout(iosTick, i * 90);
 }
 

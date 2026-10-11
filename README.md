@@ -1,6 +1,6 @@
 # My Journal
 
-App web personal (mobile-first): registro de hábitos, estadística, colecciones
+App web personal (mobile-first): hábitos del día (en Inicio), progreso, colecciones
 (videojuegos, música y las que crees), miscelánea y notas. Sitio estático en JS vanilla (sin build) +
 Firebase (Firestore, Auth y Hosting en el plan gratuito Spark).
 
@@ -72,7 +72,7 @@ Rutas: `#/coleccion` (portal), `#/coleccion/videojuegos`,
 `#/coleccion/videojuegos/{idJuego}`, `#/coleccion/musica`, `#/coleccion/c-…`.
 Los enlaces viejos siguen andando: `#/coleccion/{idJuego}` →
 `#/coleccion/videojuegos/{idJuego}`, `#/musica` → `#/coleccion/musica` y
-`#/stats` → `#/estadistica`. No hay choque posible: los ids automáticos de
+`#/registro` → `#/inicio` y `#/stats` / `#/estadistica` → `#/progreso`. No hay choque posible: los ids automáticos de
 Firestore nunca llevan `-`.
 
 **Imágenes de Miscelánea:** Firebase Storage ya no está incluido en el plan
@@ -90,12 +90,19 @@ npm run test:rules   # reglas de Firestore en el emulador (requiere Java)
 npm test             # funciones puras (racha)
 ```
 
+**Tiempo real:** cada colección que muestra una sección queda escuchando
+Firestore (`onSnapshot` en `public/js/store.js`). Si cambia desde otro
+dispositivo, la sección se redibuja sola y conserva el scroll. Espera si hay
+una hoja o el menú abiertos, o texto sin guardar en un campo.
+
 ## Dónde tocar
 
-- `public/js/habits.js`: hábitos, qué hábito suma a qué stat, y la regla de la racha.
+- `public/js/habits.js`: hábitos y la regla de la racha.
+- `public/js/lib/habitPicker.js`: la grilla de hábitos con Guardar (Inicio y Progreso).
+- `public/js/views/progreso.js`: el mapa de intensidad de los últimos 12 meses.
 - `public/js/views/home.js`: saludo y textos del footer (día y noche).
 - `public/js/lib/sky.js`: el arte dithered del sol y la luna.
-- `public/css/styles.css`: tokens de color y tipografía (`:root`). JetBrains Mono es la mono compartida (navegación, números y fechas). Cada apartado tiene su propia fuente, definida en las variables `--f-*`: Inicio usa Georgia (Gelasio en Android), Registro Instrument Sans, Estadística Teko, Colección Bebas Neue, Música SF Pro o Inter, Notas Literata y Miscelánea Special Elite. El bloque "TIPOGRAFÍA Y DISEÑO POR APARTADO", al final del CSS, aplica cada fuente solo dentro de su sección.
+- `public/css/styles.css`: tokens de color y tipografía (`:root`). JetBrains Mono es la mono compartida (navegación, números y fechas). Cada apartado tiene su propia fuente, definida en las variables `--f-*`: Inicio usa Georgia (Gelasio en Android), Progreso Teko, Colección Bebas Neue, Música SF Pro o Inter, Notas Literata y Miscelánea Special Elite. El bloque "TIPOGRAFÍA Y DISEÑO POR APARTADO", al final del CSS, aplica cada fuente solo dentro de su sección.
 - `public/js/lib/activity.js`: textos del registro de actividad.
 - `public/sw.js`: service worker (la app abre sin conexión). Si agregás un archivo JS, sumalo a `SHELL`.
 - `public/js/lib/profile.js`: burbuja del perfil (arriba a la derecha) con la cuenta de Google y los ajustes.
