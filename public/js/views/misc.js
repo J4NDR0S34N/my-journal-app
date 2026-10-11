@@ -7,6 +7,7 @@ import { compressImage } from "../lib/image.js";
 import { esc, toast, confirmTap, openSheet, plural } from "../lib/ui.js";
 import { fmtStamp } from "../lib/dates.js";
 import { logActivity } from "../lib/activity.js";
+import { shortcut } from "../lib/device.js";
 
 const normUrl = (u) => {
   u = u.trim();
@@ -35,7 +36,7 @@ export async function render(root) {
         <label class="btn">+ imagen<input type="file" accept="image/*" multiple hidden class="file-in" /></label>
         <button class="btn btn-ghost add-link">+ link</button>
       </div>
-      <p class="mono muted hint-paste">también podés pegar una imagen o un link con ctrl/⌘+v</p>
+      ${shortcut("V") ? `<p class="mono muted hint-paste">también podés pegar una imagen o un link con ${shortcut("V")}</p>` : ""}
       <div class="mgrid"></div>
     </section>`;
 

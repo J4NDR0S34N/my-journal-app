@@ -260,7 +260,6 @@ export function mountShelf(root, cfg) {
             <button class="btn" data-act="move">Mover a ${other[1]}</button>
             ${cfg.cover ? `<button class="btn btn-ghost" data-act="cover">Cambiar portada</button>` : ""}
             <button class="btn btn-ghost" data-act="del">Borrar</button>
-            <button class="btn btn-ghost" data-close>Cerrar</button>
           </div>
         </div>
       </div>`);

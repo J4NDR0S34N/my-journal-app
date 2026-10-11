@@ -102,10 +102,7 @@ function openPanel() {
         </div>
         ${chips("Tema", THEMES, themePref())}
       </div>
-      <div class="detail-actions">
-        ${opts.isLocal ? "" : `<button class="btn btn-ghost" data-act="out">Cerrar sesión</button>`}
-        <button class="btn" data-close>Listo</button>
-      </div>
+      ${opts.isLocal ? "" : `<div class="detail-actions"><button class="btn btn-ghost" data-act="out">Cerrar sesión</button></div>`}
     </div>`);
   bindAvatarFallback(sh.el.querySelector(".avatar-lg"));
   sh.el.addEventListener("click", async (e) => {

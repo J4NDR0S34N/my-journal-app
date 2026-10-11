@@ -2,6 +2,7 @@ import { list, add, update, remove } from "../store.js";
 import { esc, toast, confirmTap } from "../lib/ui.js";
 import { fmtStamp } from "../lib/dates.js";
 import { logActivity } from "../lib/activity.js";
+import { shortcut } from "../lib/device.js";
 
 // Título derivado: primeras palabras de la primera línea.
 export function noteTitle(text, words = 7) {
@@ -27,7 +28,7 @@ export async function render(root) {
       <form class="composer">
         <textarea rows="1" placeholder="Escribí una nota…" aria-label="Nueva nota"></textarea>
         <div class="composer-bar">
-          <span class="mono muted hint">ctrl/⌘ + enter para guardar</span>
+          <span class="mono muted hint">${shortcut("Enter") ? `${shortcut("Enter")} para guardar` : ""}</span>
           <button class="btn btn-sm" type="submit" disabled>Guardar</button>
         </div>
       </form>

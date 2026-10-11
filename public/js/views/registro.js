@@ -23,11 +23,11 @@ export function bindHabitGrid(el, key, h, onChange) {
   el.addEventListener("change", async (e) => {
     const input = e.target.closest(".habit-input");
     if (!input) return;
-    haptic();
     const b = input.closest(".habit");
     const k = b.dataset.k;
     const next = Object.fromEntries(HABITS.map((x) => [x.key, !!h[x.key]]));
     next[k] = input.checked;
+    haptic(next[k] ? HABITS.filter((x) => next[x.key]).length : 0, HABITS.length);
     b.classList.toggle("on", next[k]);
     Object.assign(h, next);
     onChange?.(h);
