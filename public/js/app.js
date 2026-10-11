@@ -7,8 +7,8 @@ import { startLuz } from "./lib/luz.js";
 
 const ROUTES = [
   ["inicio", "Inicio", () => import("./views/home.js")],
-  ["registro", "Registro", () => import("./views/registro.js")],
-  ["estadistica", "Estadística", () => import("./views/stats.js")],
+  ["registro", "Hoy", () => import("./views/registro.js")],
+  ["estadistica", "Progreso", () => import("./views/stats.js")],
   ["coleccion", "Colección", () => import("./views/coleccion.js")],
   ["misc", "Miscelánea", () => import("./views/misc.js")],
   ["notas", "Notas", () => import("./views/notas.js")],

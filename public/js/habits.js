@@ -14,7 +14,7 @@ export const HABITS = [
 ];
 
 // PROVISORIO — reemplazar por el mapeo exacto del prototipo anterior.
-// Cada hábito marcado suma 1 punto a cada stat donde aparece.
+// Cada área suma como máximo 1 punto por día si se marcó alguno de sus hábitos.
 export const STATS = [
   { key: "str", label: "Fuerza", habits: ["gym"] },
   { key: "dex", label: "Destreza", habits: ["run", "gaming", "drawing"] },
@@ -24,18 +24,22 @@ export const STATS = [
 ];
 
 export const POINTS_PER_LEVEL = 5;
-export const BAR_SEGMENTS = 20;
+export const LEVELS_PER_CYCLE = 5;
+export const POINTS_PER_CYCLE = POINTS_PER_LEVEL * LEVELS_PER_CYCLE;
+export const BAR_SEGMENTS = POINTS_PER_CYCLE;
 
 export function computeStats(days) {
   const pts = Object.fromEntries(STATS.map((s) => [s.key, 0]));
   for (const d of days) {
     const h = d.h || {};
-    for (const s of STATS) for (const k of s.habits) if (h[k]) pts[s.key]++;
+    for (const s of STATS) if (s.habits.some((k) => h[k])) pts[s.key]++;
   }
   return STATS.map((s) => {
     const points = pts[s.key];
     const level = Math.floor(points / POINTS_PER_LEVEL);
-    return { ...s, points, level, filled: Math.min(level, BAR_SEGMENTS) };
+    const cycle = points === 0 ? 1 : Math.floor((points - 1) / POINTS_PER_CYCLE) + 1;
+    const cyclePoints = points === 0 ? 0 : ((points - 1) % POINTS_PER_CYCLE) + 1;
+    return { ...s, points, level, cycle, cyclePoints, filled: cyclePoints };
   });
 }
 

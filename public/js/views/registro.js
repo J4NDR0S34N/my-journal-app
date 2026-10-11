@@ -53,8 +53,8 @@ export async function render(root) {
   root.innerHTML = `
     <section class="page registro">
       <header class="page-head">
-        <h1>Registro</h1>
-        <p class="mono label"><span>${fmtLong()}</span></p>
+        <h1>Hoy</h1>
+        <p class="mono label"><span>${fmtLong()}</span> · Marcá lo que hiciste hoy</p>
       </header>
       <div class="reg-progress" aria-hidden="true"><span class="count mono"></span><i><b></b></i></div>
       ${habitGrid(h, "list")}
