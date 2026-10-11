@@ -53,7 +53,7 @@ Rutas del dueño; para el resto de las cuentas, anteponé `users/{uid}/`.
 | Colección | Documento |
 |---|---|
 | `days/{YYYY-MM-DD}` | `{ h: { gym, run, gaming, hydration, rest, projects, reading, drawing, movies } }` |
-| `notes/{id}` | `{ text, createdAt }` — el título se deriva del texto |
+| `notes/{id}` | `{ title?, text, createdAt }` — sin título propio, se muestran las primeras palabras del texto |
 | `games/{id}` | `{ title, coverUrl, releaseDate, platform, genre, status: "owned"\|"wishlist", addedAt }` |
 | `music/{id}` | `{ title, artist, coverUrl, releaseDate, genre, type: "album"\|"ep"\|"single", status: "listened"\|"pending", addedAt }` |
 | `misc/{id}` | `{ kind: "image"\|"link", imageUrl?, ratio?, url?, title?, note?, createdAt }` |

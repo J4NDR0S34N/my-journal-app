@@ -368,15 +368,8 @@ a.streak:hover { border-color: var(--muted); }
   margin: 0 0 4px;
   padding-top: 28px;
 }
-/* hoy · ayer · anteayer, una columna por día */
-.act-cols { display: grid; grid-template-columns: 1fr; gap: 4px 0; margin-top: 8px; }
-@media (min-width: 700px) {
-  .act-cols { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-  .act-col + .act-col { border-left: 1px solid var(--line); padding-left: 24px; }
-  .act-col:not(:last-child) { padding-right: 24px; }
-}
-.act-day { margin: 18px 0 4px; }
-.act-day span { margin-left: 6px; }
+/* solo la actividad de hoy, en una lista */
+.activity .act-list { max-width: 680px; margin-top: 8px; }
 .act-list { list-style: none; margin: 0; padding: 0; }
 .act-list li { animation: itemIn 0.5s var(--ease) both; }
 .act-item {
@@ -2012,3 +2005,27 @@ button.heat-day { cursor: pointer; }
 .wk-emo { display: flex; flex-wrap: wrap; justify-content: center; gap: 2px; margin-top: 4px; font-size: 15px; line-height: 1.2; }
 @media (min-width: 700px) { .heat-day.wk-day { min-height: 190px; padding: 12px 6px; } .wk-emo { font-size: 20px; gap: 4px; } }
 .heat-day.cal-day.future, .heat-day.wk-day.future { color: var(--hud-dim); }
+
+/* =====================================================================
+   NOTAS: título propio (opcional) sobre el texto
+   ===================================================================== */
+.composer-title, .note-edit-title {
+  display: block;
+  width: 100%;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  border-radius: 0;
+  background: transparent;
+  outline: none;
+  color: var(--ink);
+  -webkit-appearance: none;
+  appearance: none;
+}
+.composer-title { padding: 2px 0 10px; margin-bottom: 10px; }
+.notes .composer-title, .notes .note-edit-title { font: 600 var(--step-1)/1.4 var(--sans); }
+.composer-title::placeholder, .note-edit-title::placeholder { color: var(--muted); font-weight: 400; }
+.composer-title:focus, .note-edit-title:focus { border-bottom-color: var(--faint); }
+.note-edit-title { min-height: 44px; margin-bottom: 10px; }
+/* las notas con título propio resaltan; las que no, muestran sus primeras palabras más suaves */
+.notes .note-title { font-weight: 600; }
+.notes .note-title.auto { font-weight: 400; color: var(--ink-2); }

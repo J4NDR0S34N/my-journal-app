@@ -1,5 +1,5 @@
 import { createSky } from "../lib/sky.js";
-import { dayKey, isDaytime, fmtLong, fmtTime, fmtShort } from "../lib/dates.js";
+import { dayKey, isDaytime, fmtLong, fmtTime } from "../lib/dates.js";
 import { list } from "../store.js";
 import { HABITS, countDone, computeStreak } from "../habits.js";
 import { habitButtons, bindHabitButtons, sameHabits, saveDay } from "../lib/habitPicker.js";
@@ -27,9 +27,6 @@ function greeting(d) {
   return "Buenas noches";
 }
 
-// Tres columnas: hoy, ayer y anteayer.
-const DAY_NAMES = ["Hoy", "Ayer", "Anteayer"];
-
 function itemHtml(a) {
   const icon = a.img
     ? `<img src="${esc(a.img)}" alt="" loading="lazy" />`
@@ -42,20 +39,11 @@ function itemHtml(a) {
     </a></li>`;
 }
 
+// Solo la actividad de hoy, de la más reciente a la más vieja.
 function activityHtml(items) {
-  const cols = DAY_NAMES.map((name, i) => {
-    const d = new Date();
-    d.setDate(d.getDate() - i);
-    return { name, key: dayKey(d), items: [] };
-  });
-  for (const a of items) cols.find((c) => c.key === dayKey(new Date(a.at)))?.items.push(a);
-  return `<div class="act-cols">${cols.map((c) => `
-    <div class="act-col">
-      <h3 class="act-day label">${c.name} <span class="muted">${fmtShort(c.key).replace(/ \d{4}$/, "")}</span></h3>
-      ${c.items.length
-        ? `<ol class="act-list">${c.items.map(itemHtml).join("")}</ol>`
-        : `<p class="act-empty muted">Sin actividad.</p>`}
-    </div>`).join("")}</div>`;
+  return items.length
+    ? `<ol class="act-list">${items.map(itemHtml).join("")}</ol>`
+    : `<p class="act-empty muted">Todavía no hay actividad hoy.</p>`;
 }
 
 export async function render(root) {
@@ -150,7 +138,7 @@ export async function render(root) {
   }
   list("days").then(paintDays).catch(() => {});
 
-  activitySince(2).then((items) => {
+  activitySince(0).then((items) => {
     if (!root.isConnected) return;
     const body = $(".act-body");
     body.innerHTML = activityHtml(items);
