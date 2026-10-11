@@ -87,18 +87,18 @@ solo al abrir la imagen.
 cd tests
 npm install
 npm run test:rules   # reglas de Firestore en el emulador (requiere Java)
-npm test             # funciones puras (racha y bienvenida)
+npm test             # funciones puras (racha)
 ```
 
 ## Dónde tocar
 
-- `public/js/habits.js`: hábitos, qué hábito suma a qué stat, la regla de la racha y la de "Bienvenido de vuelta".
+- `public/js/habits.js`: hábitos, qué hábito suma a qué stat, y la regla de la racha.
 - `public/js/views/home.js`: saludo y textos del footer (día y noche).
 - `public/js/lib/sky.js`: el arte dithered del sol y la luna.
 - `public/css/styles.css`: tokens de color y tipografía (`:root`). JetBrains Mono es la mono compartida (navegación, números y fechas). Cada apartado tiene su propia fuente, definida en las variables `--f-*`: Inicio usa Georgia (Gelasio en Android), Registro Instrument Sans, Estadística Teko, Colección Bebas Neue, Música SF Pro o Inter, Notas Literata y Miscelánea Special Elite. El bloque "TIPOGRAFÍA Y DISEÑO POR APARTADO", al final del CSS, aplica cada fuente solo dentro de su sección.
 - `public/js/lib/activity.js`: textos del registro de actividad.
 - `public/sw.js`: service worker (la app abre sin conexión). Si agregás un archivo JS, sumalo a `SHELL`.
-- `public/js/lib/profile.js`: burbuja del perfil (abajo a la izquierda) con la cuenta de Google y los ajustes.
+- `public/js/lib/profile.js`: burbuja del perfil (arriba a la derecha) con la cuenta de Google y los ajustes.
 - `public/js/lib/prefs.js` y `luz.js`: ajustes del dispositivo (háptica, movimiento, tema) y la luz del día.
 
 ## Licencia

@@ -61,10 +61,3 @@ export function computeStreak(days, todayKey, dayKeyFn) {
   }
   return n;
 }
-
-// "Bienvenido de vuelta": ayer sin hábitos, pero hubo alguno antes.
-export function welcomeBack(days, todayKey, dayKeyFn) {
-  const yesterday = shift(todayKey, -1, dayKeyFn);
-  const done = days.filter((d) => countDone(d.h) >= STREAK_MIN).map((d) => d.id);
-  return !done.includes(yesterday) && done.some((k) => k < yesterday);
-}

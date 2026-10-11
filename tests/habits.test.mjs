@@ -1,7 +1,7 @@
-// Pruebas de la racha y de "Bienvenido de vuelta" (node --test).
+// Pruebas de la racha (node --test).
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { computeStreak, welcomeBack } from "../public/js/habits.js";
+import { computeStreak } from "../public/js/habits.js";
 import { dayKey } from "../public/js/lib/dates.js";
 
 const day = (id, on = true) => ({ id, h: { run: on } });
@@ -22,11 +22,4 @@ test("un día sin hábitos corta la racha", () => {
 
 test("la racha cruza el cambio de mes", () => {
   assert.equal(computeStreak([day("2026-09-30"), day("2026-10-01")], "2026-10-01", dayKey), 2);
-});
-
-test("bienvenido de vuelta: ayer sin registro pero hubo antes", () => {
-  assert.equal(welcomeBack([day("2026-10-07")], "2026-10-10", dayKey), true);
-  assert.equal(welcomeBack([day("2026-10-09")], "2026-10-10", dayKey), false);
-  assert.equal(welcomeBack([], "2026-10-10", dayKey), false);
-  assert.equal(welcomeBack([day("2026-10-10")], "2026-10-10", dayKey), false);
 });

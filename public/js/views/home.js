@@ -1,7 +1,7 @@
 import { createSky } from "../lib/sky.js";
 import { dayKey, isDaytime, fmtLong, fmtTime, fmtShort } from "../lib/dates.js";
 import { list } from "../store.js";
-import { HABITS, computeStreak, welcomeBack } from "../habits.js";
+import { HABITS, computeStreak } from "../habits.js";
 import { esc, plural } from "../lib/ui.js";
 import { firstName, onProfile } from "../lib/profile.js";
 import { activitySince } from "../lib/activity.js";
@@ -65,7 +65,6 @@ export async function render(root) {
         <div class="home-main">
           <p class="mono label home-date"></p>
           <h1 class="home-greet"></h1>
-          <p class="mono home-welcome" hidden></p>
           <p class="mono home-status muted"></p>
           <a class="streak mono" href="#/estadistica" hidden></a>
         </div>
@@ -92,12 +91,9 @@ export async function render(root) {
     $(".foot-txt").textContent = `© ${now.getFullYear()} · ${day ? FOOT.day : FOOT.night}`;
   }
   // Saludo con el nombre de la cuenta de Google: "Buenas tardes, Alejandro".
-  let showWelcome = false;
   function paintNames(now = new Date()) {
     const name = firstName();
     $(".home-greet").textContent = name ? `${greeting(now)}, ${name}` : greeting(now);
-    $(".home-welcome").textContent = name ? `Bienvenido de vuelta, ${name}` : "Bienvenido de vuelta";
-    $(".home-welcome").hidden = !showWelcome;
   }
   tick();
   const timer = setInterval(tick, 20_000);
@@ -109,12 +105,12 @@ export async function render(root) {
     if (!root.isConnected) return;
     const doc = days.find((d) => d.id === today);
     const done = HABITS.filter((x) => doc?.h?.[x.key]).map((x) => x.done);
-    $(".home-status").textContent = `hoy: ${done.length ? done.join(", ") : "nada marcado todavía"}`;
+    // Solo si hay algo marcado: "hoy: corriste, leíste".
+    $(".home-status").textContent = done.length ? `hoy: ${done.join(", ")}` : "";
+    $(".home-status").hidden = !done.length;
     const s = $(".streak");
     s.textContent = `🔥 ${plural(computeStreak(days, today, dayKey), "día", "días")}`;
     s.hidden = false;
-    showWelcome = welcomeBack(days, today, dayKey);
-    paintNames();
   }
   list("days").then(paintDays).catch(() => {});
 

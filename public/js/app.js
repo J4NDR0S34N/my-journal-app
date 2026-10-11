@@ -1,6 +1,6 @@
 import { initStore, onUser, signIn, signOut, isLocal, list, clearCache } from "./store.js";
 import { dayKey } from "./lib/dates.js";
-import { esc } from "./lib/ui.js";
+import { esc, toast } from "./lib/ui.js";
 import { applyMotion, startTheme } from "./lib/prefs.js";
 import { mountProfile, setProfile } from "./lib/profile.js";
 import { isCollectionId } from "./lib/collections.js";
@@ -37,6 +37,18 @@ function buildNav() {
 async function logOut() {
   await signOut();
   location.hash = "";
+}
+
+// Abre la lista de cuentas de Google; si se cancela, sigue la sesión actual.
+async function switchAccount() {
+  try {
+    await signIn({ pickAccount: true });
+  } catch (e) {
+    if (e?.code !== "auth/popup-closed-by-user" && e?.code !== "auth/cancelled-popup-request") {
+      toast("No se pudo cambiar de cuenta");
+      console.error(e);
+    }
+  }
 }
 
 // Menú: el botón dice "Menú" (aria-expanded indica si está abierto). Abierto,
@@ -196,7 +208,7 @@ async function boot() {
   startTheme();
   applyMotion();
   buildNav();
-  mountProfile({ isLocal, signOut: logOut });
+  mountProfile({ isLocal, signOut: logOut, switchAccount, parent: document.querySelector(".topbar") });
   // El código de la sección se baja al mismo tiempo que Firebase.
   currentRoute()[2]().catch(() => {});
   let optimistic = isLocal || wasSignedIn();

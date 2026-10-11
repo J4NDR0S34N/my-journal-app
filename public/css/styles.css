@@ -248,7 +248,7 @@ body.gated .topbar, body.gated .nav, body.gated main { display: none; }
 
 /* escritorio: el mismo menú desplegable que en el celular, con más aire */
 @media (min-width: 900px) {
-  .topbar { top: 20px; left: 24px; }
+  .topbar { top: 20px; left: 24px; right: 24px; }
   .nav-toggle { transition: background-color 0.25s var(--ease), transform 0.25s var(--ease); }
   .nav-toggle:hover { background: var(--paper-3); transform: scale(1.05); }
   .nav { padding: 96px 80px 56px; }
@@ -328,7 +328,6 @@ body.gated .topbar, body.gated .nav, body.gated main { display: none; }
   background: var(--glass);
 }
 a.streak:hover { border-color: var(--muted); }
-.home-welcome { font-size: 12px; color: var(--ink-2); margin: 0 0 10px; }
 .home-foot {
   display: flex;
   align-items: center;
@@ -1899,7 +1898,7 @@ html[data-motion="still"] *::after {
 .setting-col { flex-direction: column; align-items: stretch; gap: 12px; padding-bottom: 16px; }
 
 /* =====================================================================
-   PERFIL: burbuja abajo a la izquierda y su panel (cuenta + ajustes)
+   PERFIL: burbuja arriba a la derecha y su panel (cuenta + ajustes)
    ===================================================================== */
 .avatar {
   display: grid;
@@ -1911,33 +1910,37 @@ html[data-motion="still"] *::after {
 }
 .avatar img { width: 100%; height: 100%; object-fit: cover; }
 .avatar-initial { font: 500 18px var(--mono); }
+/* va en la barra de arriba, en la esquina derecha */
 .profile-bubble {
-  position: fixed;
-  z-index: 60;
-  left: 12px;
-  bottom: calc(var(--safe-b) + 12px);
-  width: 48px;
-  height: 48px;
+  flex: none;
+  margin-left: auto;
+  width: 44px;
+  height: 44px;
   border: 1px solid var(--faint);
-  box-shadow: 0 6px 18px var(--shadow);
+  box-shadow: 0 4px 14px var(--shadow);
   transition: transform 0.25s var(--ease), border-color 0.25s var(--ease), opacity 0.3s var(--ease);
 }
 .profile-bubble:active { transform: scale(0.94); }
-body.gated .profile-bubble { display: none; }
 body.nav-open .profile-bubble { opacity: 0; pointer-events: none; }
 @media (hover: hover) and (pointer: fine) {
   .profile-bubble:hover { transform: scale(1.06); border-color: var(--muted); }
-}
-@media (min-width: 900px) { .profile-bubble { left: 24px; bottom: 24px; } }
-
-/* que la burbuja no tape el final de Inicio ni el cuadro de Notas */
-.home-foot { padding-bottom: calc(var(--safe-b) + 80px); }
-@media (max-width: 899px) {
-  body[data-route="notas"] .composer { margin-left: 58px; }
 }
 
 .profile-head { display: flex; align-items: center; gap: 16px; margin-bottom: 8px; }
 .avatar-lg { flex: none; width: 64px; height: 64px; }
 .avatar-lg .avatar-initial { font-size: 26px; }
+.profile-id { min-width: 0; }
 .profile-name { margin: 0; overflow-wrap: anywhere; }
+.profile-email { margin: 2px 0 0; font-size: 12px; overflow-wrap: anywhere; }
+.profile-switch {
+  min-height: 36px;
+  margin-top: 4px;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.profile-switch:hover { color: var(--ink); }
 .profile-section { margin: 22px 0 2px; }

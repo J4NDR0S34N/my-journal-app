@@ -1,6 +1,6 @@
-// Burbuja del perfil (abajo a la izquierda) y su panel: nombre y foto de la
-// cuenta de Google, ajustes del dispositivo y cerrar sesión.
-// El nombre y la foto se recuerdan en este dispositivo para que el saludo
+// Burbuja del perfil (arriba a la derecha) y su panel: nombre, correo y foto
+// de la cuenta de Google, ajustes del dispositivo, cambiar de cuenta y
+// cerrar sesión. Nombre, correo y foto se recuerdan en este dispositivo para que el saludo
 // salga con nombre desde el primer cuadro; se borran al cerrar sesión.
 
 import { esc, openSheet } from "./ui.js";
@@ -13,6 +13,7 @@ let bubble = null, opts = {};
 
 export const fullName = () => (profile?.name || "").trim();
 export const firstName = () => fullName().split(/\s+/)[0] || "";
+const email = () => profile?.email || "";
 
 // Avisa cuando llega o cambia el perfil (ej. el saludo de Inicio). Devuelve la baja.
 export function onProfile(fn) {
@@ -22,7 +23,7 @@ export function onProfile(fn) {
 
 // user: el usuario de Firebase (o null al salir).
 export function setProfile(user) {
-  profile = user ? { name: user.displayName || "", photo: user.photoURL || "" } : null;
+  profile = user ? { name: user.displayName || "", email: user.email || "", photo: user.photoURL || "" } : null;
   try { profile?.name ? localStorage.setItem(KEY, JSON.stringify(profile)) : localStorage.removeItem(KEY); } catch {}
   paintBubble();
   listeners.forEach((fn) => fn(profile));
@@ -52,13 +53,13 @@ function paintBubble() {
   bindAvatarFallback(bubble);
 }
 
-// opts: { isLocal, signOut }
+// opts: { isLocal, signOut, switchAccount, parent }
 export function mountProfile(o) {
   opts = o;
   bubble = document.createElement("button");
   bubble.className = "profile-bubble avatar";
   bubble.addEventListener("click", openPanel);
-  document.body.append(bubble);
+  (o.parent || document.body).append(bubble);
   paintBubble();
 }
 
@@ -73,7 +74,11 @@ function openPanel() {
     <div class="profile">
       <header class="profile-head">
         <span class="avatar avatar-lg">${avatarHtml()}</span>
-        <h2 class="profile-name">${esc(name)}</h2>
+        <div class="profile-id">
+          <h2 class="profile-name">${esc(name)}</h2>
+          ${email() && !opts.isLocal ? `<p class="mono muted profile-email">${esc(email())}</p>` : ""}
+          ${opts.isLocal ? "" : `<button class="profile-switch mono" data-act="switch">Cambiar de cuenta</button>`}
+        </div>
       </header>
       <h3 class="label profile-section">Ajustes</h3>
       <div class="setting">
@@ -93,7 +98,7 @@ function openPanel() {
       <div class="setting setting-col">
         <div>
           <p class="setting-name">Tema</p>
-          <p class="mono muted setting-hint">Automático sigue al dispositivo; hora del día es claro de 8 a 20.</p>
+          <p class="mono muted setting-hint">Automático: claro de día (8 a 20) y oscuro de noche.</p>
         </div>
         ${chips("Tema", THEMES, themePref())}
       </div>
@@ -122,6 +127,9 @@ function openPanel() {
     if (e.target.closest('[data-act="out"]')) {
       sh.close();
       await opts.signOut();
+    } else if (e.target.closest('[data-act="switch"]')) {
+      sh.close();
+      await opts.switchAccount();
     }
   });
 }

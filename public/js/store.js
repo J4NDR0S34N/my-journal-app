@@ -76,8 +76,10 @@ export function onUser(cb) {
   });
 }
 
-export async function signIn() {
+// pickAccount: Google muestra siempre la lista de cuentas ("Cambiar de cuenta").
+export async function signIn({ pickAccount = false } = {}) {
   const provider = new fb.au.GoogleAuthProvider();
+  if (pickAccount) provider.setCustomParameters({ prompt: "select_account" });
   try {
     await fb.au.signInWithPopup(fb.auth, provider);
   } catch (e) {

@@ -53,22 +53,21 @@ export function onMotion(fn) {
 reduced.addEventListener?.("change", applyMotion);
 
 // ---------- tema ----------
-// oscuro, claro, automático (el del dispositivo) u hora del día (claro de
-// 8 a 20, oscuro el resto). Lo resuelto queda en data-theme de <html>; el
-// script del <head> hace lo mismo antes de pintar.
+// claro, oscuro o automático (según la hora: claro de 8 a 20, oscuro el
+// resto). Lo resuelto queda en data-theme de <html>; el script del <head>
+// hace lo mismo antes de pintar.
 const THEME = "mj:theme";
-export const THEMES = [["dark", "oscuro"], ["light", "claro"], ["system", "automático"], ["hour", "hora del día"]];
+export const THEMES = [["light", "claro"], ["dark", "oscuro"], ["auto", "automático"]];
 const THEME_BG = { dark: "#0c0b0a", light: "#f3efe7" };
-const prefersLight = matchMedia("(prefers-color-scheme: light)");
 
 export function themePref() {
   const v = read(THEME);
+  if (v === "system" || v === "hour") return "auto"; // opciones anteriores
   return THEMES.some(([k]) => k === v) ? v : "dark";
 }
 
 function resolveTheme(pref = themePref(), d = new Date()) {
-  if (pref === "system") return prefersLight.matches ? "light" : "dark";
-  if (pref === "hour") return d.getHours() >= 8 && d.getHours() < 20 ? "light" : "dark";
+  if (pref === "auto") return d.getHours() >= 8 && d.getHours() < 20 ? "light" : "dark";
   return pref;
 }
 
@@ -92,11 +91,9 @@ export function setThemePref(v) {
   applyTheme();
 }
 
-// Automático sigue al dispositivo; hora del día se revisa cada 10 minutos
-// y al volver a la app.
+// Automático se revisa cada 10 minutos y al volver a la app.
 export function startTheme() {
   applyTheme({ animate: false });
-  prefersLight.addEventListener?.("change", () => applyTheme());
   setInterval(() => applyTheme(), 10 * 60_000);
   document.addEventListener("visibilitychange", () => document.visibilityState === "visible" && applyTheme());
 }

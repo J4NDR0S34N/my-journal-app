@@ -13,8 +13,7 @@
     // destello). Misma lógica que js/lib/prefs.js y js/lib/luz.js.
     try {
       var t = localStorage.getItem("mj:theme") || "dark", hr = new Date().getHours();
-      if (t === "system") t = matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
-      else if (t === "hour") t = hr >= 8 && hr < 20 ? "light" : "dark";
+      if (t === "auto" || t === "system" || t === "hour") t = hr >= 8 && hr < 20 ? "light" : "dark";
       document.documentElement.dataset.theme = t === "light" ? "light" : "dark";
     } catch (e) {}
     try {
