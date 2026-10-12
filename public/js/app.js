@@ -8,6 +8,7 @@ import { startLuz } from "./lib/luz.js";
 
 const ROUTES = [
   ["inicio", "Inicio", () => import("./views/home.js")],
+  ["historia", "Mi historia", () => import("./views/historia.js")],
   ["progreso", "Progreso", () => import("./views/progreso.js")],
   ["coleccion", "Colección", () => import("./views/coleccion.js")],
   ["misc", "Miscelánea", () => import("./views/misc.js")],
@@ -15,6 +16,7 @@ const ROUTES = [
 ];
 const ROUTE_ICONS = {
   inicio: '<svg viewBox="0 0 24 24"><path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>',
+  historia: '<svg viewBox="0 0 24 24"><path d="M4 5h16M4 12h16M4 19h16"/><circle cx="7" cy="5" r="2"/><circle cx="17" cy="12" r="2"/><circle cx="9" cy="19" r="2"/></svg>',
   progreso: '<svg viewBox="0 0 24 24"><path d="M4 19V5m0 14h16M7 15l4-4 3 2 5-6"/><circle cx="19" cy="7" r="1"/></svg>',
   coleccion: '<svg viewBox="0 0 24 24"><path d="M4 5.5 17 3l3 15-13 2.5zM7 7l9-1.7M8 11l9-1.7M9 15l8-1.7"/><path d="M4 5.5v14A1.5 1.5 0 0 0 5.5 21H19"/></svg>',
   misc: '<svg viewBox="0 0 24 24"><path d="m12 3 1.7 5.3L19 10l-5.3 1.7L12 17l-1.7-5.3L5 10l5.3-1.7zM19 15l1 2.5 2.5 1-2.5 1L19 22l-1-2.5-2.5-1 2.5-1z"/></svg>',

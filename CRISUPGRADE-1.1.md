@@ -15,6 +15,9 @@ Mejorar el Inicio sin rehacer la aplicación ni cambiar su identidad visual: con
 - Se incorporó una tarjeta de progreso que alterna las áreas personales y muestra puntos y avance al siguiente nivel, junto con accesos al progreso detallado.
 - Se mejoró la navegación adaptable a móvil con iconos por sección y estados visuales más claros.
 - Se pulieron tamaños, alineación, zonas de interacción y estados visuales relacionados con el diseño y el movimiento de módulos.
+- Se añadió **Mi historia**, una cronología que reúne por fecha notas, juegos, música, recuerdos guardados, elementos de colecciones y días con hábitos o reflexión.
+- Mi historia incluye búsqueda, filtros por categoría y períodos de 30 días, 90 días, 12 meses o todo el historial. El Inicio enlaza la actividad reciente con esta vista.
+- Esta primera cronología compone la vista a partir de documentos ya existentes; no migra datos ni incorpora todavía el registro de acciones de edición o borrado como eventos históricos.
 
 ## Preferencias y datos
 
@@ -23,6 +26,8 @@ Las preferencias de distribución, visibilidad y orden del Inicio se guardan en 
 ## Archivos principales
 
 - `public/js/views/home.js`: composición del Inicio, preferencias, distribución, reordenamiento y tarjeta de progreso.
+- `public/js/views/historia.js`: cronología agregada, búsqueda, filtros y agrupación de registros por día/mes.
+- `public/js/app.js`: ruta e icono de navegación para Mi historia.
 - `public/css/styles.css`: estilos del Inicio, módulos, estados de interacción y adaptación a distintos tamaños.
 - `public/js/lib/prefs.js` y archivos de vistas/almacenamiento existentes: preferencias generales y datos de la aplicación.
 
@@ -33,6 +38,7 @@ Las preferencias de distribución, visibilidad y orden del Inicio se guardan en 
 - Para colaborar, abrir un Pull Request desde esta rama y revisar el diff/los conflictos antes de aceptar la integración.
 - Probar primero en modo local o con un proyecto Firebase de desarrollo. No conectar una prueba a la base de producción.
 - La personalización debe probarse al cambiar distribución, ocultar/mostrar un módulo, reordenar con controles y arrastre, recargar la página y usar una pantalla móvil.
+- Mi historia consulta las colecciones existentes al abrirse; “Todo” puede leer todos los registros históricos. Si el volumen crece, agregar paginación por cursor antes de ampliarla a grandes archivos.
 
 ## Contexto para futuras IAs
 

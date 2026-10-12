@@ -127,7 +127,7 @@ export async function render(root) {
         <div class="home-progress-content"><p class="mono label">TU SIGUIENTE NIVEL</p><strong class="strength-name">Fuerza</strong><span class="strength-count mono">Calculando progreso…</span><div class="strength-meter" role="progressbar" aria-label="Progreso de Fuerza" aria-valuemin="0" aria-valuemax="5" aria-valuenow="0"><i></i></div><span class="strength-level mono"></span><small class="strength-hint">Cada día de gimnasio suma 1 punto · 5 para subir.</small><a class="home-progress-link" href="#/progreso">Ver progreso <span aria-hidden="true">↗</span></a></div>
       </section>
       <section class="home-widget home-activity-widget" data-home-widget="activity" aria-labelledby="act-h">
-        <h2 id="act-h" class="act-head">Actividad reciente</h2>
+        <div class="home-activity-head"><h2 id="act-h" class="act-head">Actividad reciente</h2><a href="#/historia">Ver mi historia <span aria-hidden="true">↗</span></a></div>
         <div class="act-body"><p class="act-empty muted">cargando…</p></div>
       </section>
       <section class="home-widget home-reflection" data-home-widget="reflection" aria-label="Pregunta del día"><form class="umbral" autocomplete="off"><label class="umbral-q" for="umbral-in">¿Qué te gustaría recordar dentro de un año?</label><input id="umbral-in" class="umbral-in" type="text" maxlength="280" enterkeyhint="done" placeholder="Una línea alcanza…" /><span class="umbral-ok mono muted" aria-live="polite"></span></form></section>
