@@ -7,7 +7,7 @@ import { list, get, set, onRemoteChange } from "../store.js";
 
 export const DAY_SCENES = [["clouds", "Soleado + nubes"], ["clear", "Soleado despejado"]];
 export const NIGHT_SCENES = [
-  ["comets", "Luna + cometas"], ["clear", "Nocturno despejado"], ["jupiter", "Júpiter"], ["mars", "Marte"],
+  ["comets", "Luna + cometas"], ["clear", "Nocturno despejado"], ["saturn", "Saturno"], ["mars", "Marte"],
 ];
 
 const KEY = "mj:scenes";
@@ -15,10 +15,14 @@ const DEFAULT = { day: "clouds", night: "comets" };
 const listeners = new Set();
 
 // Valores desconocidos (o de una versión futura) vuelven al de fábrica.
-const clean = (v) => ({
-  day: DAY_SCENES.some(([k]) => k === v?.day) ? v.day : DEFAULT.day,
-  night: NIGHT_SCENES.some(([k]) => k === v?.night) ? v.night : DEFAULT.night,
-});
+// Júpiter fue reemplazado por Saturno.
+const clean = (v) => {
+  const night = v?.night === "jupiter" ? "saturn" : v?.night;
+  return {
+    day: DAY_SCENES.some(([k]) => k === v?.day) ? v.day : DEFAULT.day,
+    night: NIGHT_SCENES.some(([k]) => k === night) ? night : DEFAULT.night,
+  };
+};
 
 let cur = clean((() => { try { return JSON.parse(localStorage.getItem(KEY)); } catch { return null; } })());
 

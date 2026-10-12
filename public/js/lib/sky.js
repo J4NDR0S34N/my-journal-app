@@ -5,8 +5,10 @@
 //   Día: sol que deriva lento y rayos que giran; con o sin nubes a la deriva.
 //   Noche: estrellas que titilan y, según la ilustración elegida (scenes.js):
 //   luna con cráteres y cometas (su cola es la propia estela del lienzo), la
-//   luna sola, Júpiter con sus bandas y las cuatro lunas galileanas, o Marte
-//   con su casquete polar, Fobos y Deimos. Los planetas giran despacio.
+//   luna sola, Saturno con sus anillos (que pasan por delante y por detrás,
+//   y le hacen sombra) y Titán, o Marte con su gran mancha oscura, el cañón
+//   Valles Marineris, los casquetes polares, Fobos y Deimos. Los planetas
+//   giran despacio.
 
 const BAYER = [
   [0, 32, 8, 40, 2, 34, 10, 42],
@@ -55,25 +57,24 @@ const KEEP = 0.986;
 
 // Lunas de cada planeta: t ubica la órbita entre la más cercana y la más
 // lejana (0..1), w es la velocidad angular (rad/s), ph la fase y size el radio.
+// Lunas de cada planeta: t ubica la órbita entre la más cercana y la más
+// lejana (0..1), w es la velocidad angular (rad/s), ph la fase y size el radio.
 const MOONS = {
-  jupiter: [
-    { t: 0, w: 0.8, ph: 0, size: 1.7 }, // Ío
-    { t: 0.3, w: 0.45, ph: 2.1, size: 1.5 }, // Europa
-    { t: 0.62, w: 0.26, ph: 4, size: 2.1 }, // Ganimedes
-    { t: 1, w: 0.13, ph: 5.3, size: 1.9 }, // Calisto
-  ],
+  saturn: [{ t: 1, w: 0.22, ph: 0.6, size: 2 }], // Titán
   mars: [
-    { t: 0, w: 0.9, ph: 1, size: 1.5 }, // Fobos
-    { t: 1, w: 0.28, ph: 4.2, size: 1.2 }, // Deimos
+    { t: 0, w: 0.9, ph: 1, size: 2 }, // Fobos
+    { t: 1, w: 0.3, ph: 4.2, size: 1.6 }, // Deimos
   ],
 };
+// size: radio respecto de la luna. Las órbitas son elipses (open: qué tan
+// abiertas se ven) inclinadas tilt radianes; Saturno las comparte con sus anillos.
 const PLANET = {
-  jupiter: { size: 0.82, spin: 0.08, far: 2.9 },
-  mars: { size: 0.78, spin: 0.035, far: 2.6 },
+  saturn: { size: 0.62, spin: 0.07, far: 3.1, open: 0.4, tilt: -0.26 },
+  mars: { size: 0.62, spin: 0.04, far: 2.7, open: 0.3, tilt: -0.15 },
 };
 const TAU = Math.PI * 2;
 
-// scene: { day: "clouds" | "clear", night: "comets" | "clear" | "jupiter" | "mars" }
+// scene: { day: "clouds" | "clear", night: "comets" | "clear" | "saturn" | "mars" }
 // preview: miniatura del panel del perfil (centrada, sin fundido, más fina).
 export function createSky(canvas, { day, motion = "full", scene = { day: "clouds", night: "comets" }, preview = false }) {
   const ctx = canvas.getContext("2d");
@@ -151,7 +152,9 @@ export function createSky(canvas, { day, motion = "full", scene = { day: "clouds
     const keep = Math.pow(KEEP, dt / FRAME_MS);
     for (let i = 0; i < acc.length; i++) acc[i] *= keep;
     const s = t / 1000;
-    const { cx: bx, cy: by, R } = layout();
+    let { cx: bx, cy: by, R } = layout();
+    // los anillos de Saturno no se salen del borde derecho
+    if (!day && scene.night === "saturn") bx = Math.min(bx, cols - R * (PLANET.saturn.size * 2.3 + 0.3) - 2);
     // deriva lenta: el disco nuevo tapa al anterior y deja medialunas de estela
     const cx = bx + Math.sin(s * 0.3) * R * 0.3;
     const cy = by + Math.cos(s * 0.23) * R * 0.18;
@@ -181,8 +184,11 @@ export function createSky(canvas, { day, motion = "full", scene = { day: "clouds
       // halo (más corto y tenue en los planetas, para que se lean sus bandas)
       if (planet) disc(cx, cy, pr * 1.45, (nx, ny, d) => (d < 0.7 ? 0 : 0.16 * (1 - (d - 0.7) / 0.3) ** 2), true);
       else disc(cx, cy, r * 1.9, (nx, ny, d) => (d < 0.53 ? 0 : 0.26 * (1 - (d - 0.53) / 0.47) ** 2), true);
-      if (scene.night === "jupiter") disc(cx, cy, pr, jupiter(s * planet.spin), false);
-      else if (scene.night === "mars") disc(cx, cy, pr, mars(s * planet.spin), false);
+      if (scene.night === "saturn") {
+        rings(cx, cy, pr, planet, "back");
+        disc(cx, cy, pr, saturn(cx, cy, pr, planet, s * planet.spin), false);
+        rings(cx, cy, pr, planet, "front");
+      } else if (scene.night === "mars") disc(cx, cy, pr, mars(cx, cy, pr, s * planet.spin), false);
       else {
         // luna: esfera iluminada desde arriba a la izquierda, con cráteres
         disc(cx, cy, r, (nx, ny, d) => {
@@ -196,7 +202,7 @@ export function createSky(canvas, { day, motion = "full", scene = { day: "clouds
       }
       // estrellas que titilan (las grandes, en cruz)
       for (const st of stars) {
-        if (Math.hypot(st.x - cx, st.y - cy) < pr * 1.5) continue;
+        if (Math.hypot(st.x - cx, st.y - cy) < pr * (scene.night === "saturn" ? 2.4 : 1.5)) continue;
         const v = st.b * (0.45 + 0.55 * Math.sin(s * st.sp + st.ph) ** 2);
         const put = (x, y, k) => {
           if (x < 0 || y < 0 || x >= cols || y >= rows) return;
@@ -206,7 +212,7 @@ export function createSky(canvas, { day, motion = "full", scene = { day: "clouds
         put(st.x, st.y, 1);
         if (st.big) { put(st.x - 1, st.y, 0.55); put(st.x + 1, st.y, 0.55); put(st.x, st.y - 1, 0.55); put(st.x, st.y + 1, 0.55); }
       }
-      if (planet) moons(MOONS[scene.night], cx, cy, pr, planet.far, s);
+      if (planet) moons(MOONS[scene.night], cx, cy, pr, planet, s);
       if (scene.night === "comets") cometsStep(dt);
     }
   }
@@ -219,44 +225,77 @@ export function createSky(canvas, { day, motion = "full", scene = { day: "clouds
     return { nz, lon: Math.atan2(nx, nz) + spin, light: 0.42 + 0.62 * Math.max(0, nx * -0.55 + ny * -0.3 + nz * 0.78) };
   };
 
-  // Júpiter: zonas claras y cinturones oscuros con turbulencia, y la Gran
-  // Mancha Roja (óvalo oscuro con borde claro) que pasa con el giro.
-  const jupiter = (spin) => (nx, ny, d) => {
+  // Anillos de Saturno, en el plano inclinado de PLANET.saturn: C (tenue),
+  // B (el más claro), la división de Cassini (vacía) y A. Devuelve el brillo
+  // del anillo en ese punto (0 si no hay) y de qué mitad es (la de abajo es
+  // la de adelante).
+  function ringAt(x, y, cx, cy, pr, { open, tilt }) {
+    const dx = x - cx, dy = y - cy;
+    const u = dx * Math.cos(tilt) + dy * Math.sin(tilt);
+    const v = (-dx * Math.sin(tilt) + dy * Math.cos(tilt)) / open;
+    const q = Math.hypot(u, v) / pr;
+    const b = q < 1.3 ? 0 : q < 1.5 ? 0.3 : q < 1.9 ? 0.82 : q < 2 ? 0 : q < 2.3 ? 0.58 : 0;
+    return { b: b && b + (vnoise(q * 14, 3) - 0.5) * 0.16, front: v > 0 };
+  }
+  // part "back": solo lo que no tapa el planeta; "front": por encima de él.
+  function rings(cx, cy, pr, pl, part) {
+    const ext = pr * 2.35;
+    const x0 = Math.max(0, Math.floor(cx - ext)), x1 = Math.min(cols - 1, Math.ceil(cx + ext));
+    const y0 = Math.max(0, Math.floor(cy - ext)), y1 = Math.min(rows - 1, Math.ceil(cy + ext));
+    for (let y = y0; y <= y1; y++) {
+      for (let x = x0; x <= x1; x++) {
+        const { b, front } = ringAt(x, y, cx, cy, pr, pl);
+        if (!b || front !== (part === "front")) continue;
+        if (!front && Math.hypot(x - cx, y - cy) < pr) continue;
+        // sombra del planeta sobre el anillo de atrás, hacia abajo a la derecha
+        const shade = !front && Math.hypot(x - cx - pr * 0.35, y - cy - pr * 0.2) < pr ? 0.3 : 1;
+        acc[y * cols + x] = b * shade;
+      }
+    }
+  }
+
+  // Saturno: bandas suaves, polo más oscuro y la sombra de los anillos.
+  const saturn = (cx, cy, pr, pl, spin) => (nx, ny, d) => {
     if (d > 0.94) return 0.05;
     const { nz, lon, light } = sphere(nx, ny, d, spin);
-    const turb = vnoise(lon * 3 + 40, ny * 9 + 7);
-    const band = Math.sin(ny * 10 + 0.6 + turb * 1.4);
-    let alb = band > 0.15 ? 0.98 : band > -0.35 ? 0.62 : 0.3;
-    alb += (vnoise(lon * 6 + 90, ny * 22) - 0.5) * 0.18;
-    const dl = (((lon - 1.2) % TAU) + TAU * 1.5) % TAU - Math.PI;
-    const e = (dl / 0.42) ** 2 + ((ny - 0.38) / 0.12) ** 2;
-    if (e < 0.5) alb = 0.25;
-    else if (e < 1) alb = 1;
+    let alb = 1 + 0.14 * Math.sin(ny * 8 + vnoise(lon * 2 + 7, ny * 6) * 0.8);
+    if (ny < -0.62) alb *= 0.7;
+    // la luz viene de arriba a la izquierda: el anillo proyecta su sombra un
+    // poco más abajo y a la derecha sobre el disco
+    const sh = ringAt(cx + nx * pr - pr * 0.12, cy + ny * pr - pr * 0.16, cx, cy, pr, pl);
+    if (sh.b > 0.5) alb *= 0.4;
     return 0.04 + alb * light * (0.7 + 0.3 * nz);
   };
 
-  // Marte: llanuras claras con mares oscuros y casquetes polares.
-  const mars = (spin) => (nx, ny, d) => {
+  // Marte: casquetes polares bien blancos, Syrtis Major (la gran mancha
+  // oscura en cuña), Valles Marineris (una grieta larga cerca del ecuador)
+  // y un rayado diagonal fijo que marca el polvo de las llanuras.
+  const mars = (cx, cy, pr, spin) => (nx, ny, d) => {
     if (d > 0.94) return 0.05;
     const { nz, lon, light } = sphere(nx, ny, d, spin);
-    const n = vnoise(lon * 2.2 + 20, ny * 3 + 5) * 0.65 + vnoise(lon * 5.5 + 3, ny * 8 + 60) * 0.35;
-    let alb = 0.85 - 0.58 * Math.min(1, Math.max(0, (n - 0.45) / 0.12));
-    if (ny < -0.66 + 0.07 * Math.sin(lon * 3)) alb = 1.15; // casquete norte
-    else if (ny > 0.84) alb = 1;
+    const at = (l0) => (((lon - l0) % TAU) + TAU * 1.5) % TAU - Math.PI;
+    let alb = 0.9 - 0.25 * Math.max(0, vnoise(lon * 2.4 + 20, ny * 3.2 + 5) - 0.5) * 2;
+    const ds = at(0.9), vs = (ny + 0.42) / 0.8; // Syrtis Major
+    if (vs > 0 && vs < 1 && Math.abs(ds - 0.18 * vs) < 0.08 + 0.42 * (1 - vs) + (vnoise(lon * 6, ny * 6) - 0.5) * 0.12) alb = 0.22;
+    const dv = at(3.6); // Valles Marineris
+    if (Math.abs(dv) < 0.75 && Math.abs(ny - 0.08 - dv * 0.14) < 0.035 + 0.02 * Math.cos(dv * 2)) alb = 0.12;
+    const hx = Math.round(cx + nx * pr), hy = Math.round(cy + ny * pr);
+    if (alb > 0.6 && (hx + hy) % 3 === 0) alb *= 0.6; // polvo
+    if (ny < -0.62 + 0.06 * Math.sin(lon * 3)) alb = 1.2; // casquete norte
+    else if (ny > 0.78 + 0.05 * Math.sin(lon * 4)) alb = 1.1; // casquete sur
     return 0.04 + alb * light * (0.7 + 0.3 * nz);
   };
 
   // Lunas en órbitas casi de canto: pasan por delante y por detrás del
   // planeta (detrás, quedan tapadas) y dejan estela.
-  function moons(list, cx, cy, pr, far, s) {
+  function moons(list, cx, cy, pr, { far, open, tilt }, s) {
     const near = pr * 1.35;
     const room = Math.min(cx, cols - cx) - 3;
     const max = Math.max(near + pr * 0.6, Math.min(pr * far, room));
-    const tilt = -0.15;
     for (const m of list) {
       const a = near + (max - near) * m.t;
       const th = m.ph + s * m.w;
-      const px = a * Math.cos(th), py = a * Math.sin(th) * 0.16;
+      const px = a * Math.cos(th), py = a * Math.sin(th) * open;
       const x = cx + px * Math.cos(tilt) - py * Math.sin(tilt);
       const y = cy + px * Math.sin(tilt) + py * Math.cos(tilt);
       if (Math.sin(th) < 0 && Math.hypot(x - cx, y - cy) < pr + m.size) continue;

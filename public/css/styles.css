@@ -207,18 +207,28 @@ body.nav-open .nav-toggle:hover .nav-logo { opacity: 0.38; filter: none; transfo
   backdrop-filter: blur(24px) saturate(1.3);
   display: flex;
   flex-direction: column;
-  justify-content: center;
+  justify-content: safe center; /* con muchos módulos, se desplaza */
+  overflow-y: auto;
   padding: calc(var(--safe-t) + 72px) 28px calc(var(--safe-b) + 32px);
   opacity: 0;
   visibility: hidden;
-  transition: opacity 0.35s var(--ease), visibility 0s 0.35s;
+  /* al cerrar: los ítems se van primero y el vidrio se desvanece detrás */
+  transition: opacity 0.45s var(--ease) 0.08s, visibility 0s 0.53s;
 }
-.nav a { font-size: clamp(30px, 9vw, 40px); line-height: 1.45; font-weight: 400; }
-.nav a[aria-current] { font-weight: 400; font-style: italic; }
 body.nav-open { overflow: hidden; }
-body.nav-open .nav { opacity: 1; visibility: visible; transition: opacity 0.35s var(--ease); }
-/* los ítems entran escalonados al abrir el menú */
-body.nav-open .nav li { animation: itemIn 0.5s var(--ease) both; animation-delay: calc(var(--i, 7) * 40ms + 60ms); }
+body.nav-open .nav { opacity: 1; visibility: visible; transition: opacity 0.4s var(--ease); }
+/* los ítems entran escalonados (suben y aparecen) y salen todos juntos, rápido */
+.nav li {
+  opacity: 0;
+  transform: translateY(12px);
+  transition: opacity 0.2s var(--ease), transform 0.3s var(--ease);
+}
+body.nav-open .nav li {
+  opacity: 1;
+  transform: none;
+  transition: opacity 0.45s var(--ease), transform 0.6s var(--ease);
+  transition-delay: calc(var(--i, 0) * 45ms + 80ms);
+}
 
 main { padding-top: calc(var(--safe-t) + 64px); }
 /* degradé bajo la etiqueta de navegación para que el contenido no choque al scrollear */
@@ -234,17 +244,197 @@ body:not([data-route="inicio"])::before {
   pointer-events: none;
 }
 body[data-route="inicio"] main { padding-top: 0; }
-body.gated .topbar, body.gated .nav, body.gated main { display: none; }
+body.gated .topbar, body.gated .nav, body.gated .dock, body.gated main { display: none; }
 
-/* escritorio: el mismo menú desplegable que en el celular, con más aire */
+/* ítems del menú: ícono + nombre; el actual con un fondo de tinta tenue y
+   el nombre en negrita */
+.nav ul { width: min(100%, 420px); }
+.nav a {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-height: 56px;
+  padding: 0 14px;
+  border-radius: 14px;
+  font-size: 22px;
+  letter-spacing: 0;
+}
+.nav-ico { flex: none; display: grid; place-items: center; width: 20px; }
+.nav a[aria-current] { background: color-mix(in srgb, var(--ink) 9%, transparent); color: var(--ink); font-weight: 700; }
+
+/* celular: barra de íconos abajo (el menú completo sale del logo) y, pegada
+   a ella, la burbuja + para agregar módulos. Con muchos módulos la barra se
+   desliza de lado; la burbuja queda fija. */
+.dock {
+  position: fixed;
+  z-index: 45;
+  left: 50%;
+  bottom: calc(var(--safe-b) + 12px);
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: opacity 0.35s var(--ease), translate 0.45s var(--ease);
+}
+.tabbar, .dock-add {
+  background: color-mix(in srgb, var(--paper-2) 72%, transparent);
+  -webkit-backdrop-filter: blur(20px) saturate(1.4);
+  backdrop-filter: blur(20px) saturate(1.4);
+  border: 1px solid var(--glass-edge);
+  box-shadow: 0 10px 30px var(--shadow);
+}
+.tabbar {
+  display: flex;
+  gap: 4px;
+  max-width: calc(100vw - 32px - 64px);
+  padding: 5px;
+  border-radius: 999px;
+  overflow-x: auto;
+  scroll-snap-type: x proximity;
+  scrollbar-width: none;
+  overscroll-behavior-x: contain;
+}
+.tabbar::-webkit-scrollbar { display: none; }
+.tabbar a {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 50px;
+  height: 44px;
+  border-radius: 999px;
+  scroll-snap-align: center;
+  color: var(--muted);
+  transition: color 0.2s var(--ease), background-color 0.2s var(--ease), transform 0.2s var(--ease);
+}
+.tabbar a[aria-current] { color: var(--ink); background: color-mix(in srgb, var(--ink) 12%, transparent); }
+.tabbar a:active, .dock-add:active { transform: scale(0.94); }
+.dock-add {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  color: var(--ink);
+  transition: transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1), border-color 0.25s var(--ease);
+}
+@media (hover: hover) and (pointer: fine) {
+  .dock-add:hover { transform: rotate(90deg) scale(1.06); border-color: var(--muted); }
+}
+body.nav-open .dock { opacity: 0; translate: 0 10px; pointer-events: none; }
+@media (max-width: 899px) {
+  main { padding-bottom: calc(var(--safe-b) + 76px); }
+  .toast { bottom: calc(var(--safe-b) + 84px); }
+}
+
+/* escritorio: el logo abre el mismo menú a pantalla completa, con más aire;
+   cerrado, los íconos quedan en una columna a la izquierda, centrada en alto,
+   con la burbuja + debajo */
 @media (min-width: 900px) {
   .topbar { top: 20px; left: 24px; right: 24px; }
   .nav-toggle { transition: background-color 0.25s var(--ease), transform 0.25s var(--ease); }
   .nav-toggle:hover { background: var(--paper-3); transform: scale(1.05); }
   .nav { padding: 96px 80px 56px; }
-  .nav a { display: inline-block; transition: color 0.3s var(--ease), transform 0.3s var(--ease); }
-  .nav a:hover { transform: translateX(6px); }
+  .nav ul { width: 460px; }
+  .nav a { min-height: 64px; font-size: 26px; transition: color 0.3s var(--ease), background-color 0.3s var(--ease); }
+  .nav-ico { width: 22px; }
+  .nav-ico svg { width: 22px; height: 22px; }
+  .nav a:not([aria-current]):hover { color: var(--ink); background: color-mix(in srgb, var(--ink) 5%, transparent); }
+  main { padding-left: 64px; }
+  .dock {
+    left: 19px; /* mismo eje que el logo (54 px de ancho, centro a 46 px) */
+    top: 50%;
+    bottom: auto;
+    transform: translateY(-50%);
+    flex-direction: column;
+  }
+  .tabbar {
+    flex-direction: column;
+    max-width: none;
+    max-height: calc(100vh - 240px);
+    padding: 4px;
+    border-radius: 27px;
+    overflow: hidden auto;
+    scroll-snap-type: y proximity;
+  }
+  .tabbar a { width: 44px; height: 44px; }
+  .tabbar a:not([aria-current]):hover { color: var(--ink); background: color-mix(in srgb, var(--ink) 6%, transparent); }
+  .dock-add { width: 54px; height: 54px; }
 }
+
+/* microanimaciones de los íconos del menú (clase .ico-play por un momento:
+   al pasar el cursor, al tocar y al entrar a la sección) */
+.nav a svg *, .tabbar a svg * { transform-box: fill-box; }
+.i-door { transform-origin: left center; }
+.i-page { opacity: 0; transform-box: view-box; transform-origin: 8.5px 12px; }
+.i-star1, .i-star2 { transform-origin: center; }
+.i-line { stroke-dasharray: 1; }
+.ico-play .i-roof { animation: roofHop 0.6s cubic-bezier(0.34, 1.56, 0.64, 1); }
+.ico-play .i-door { animation: doorOpen 0.9s var(--ease); }
+.ico-play .i-page { animation: pageTurn 0.6s var(--ease) backwards; }
+.ico-play .i-page2 { animation-delay: 0.2s; }
+.ico-play .i-lines { animation: linesHide 0.85s var(--ease); }
+.ico-play .i-star1 { animation: starSpin 0.8s cubic-bezier(0.34, 1.56, 0.64, 1); }
+.ico-play .i-star2 { animation: twinkle 0.8s var(--ease) 0.12s backwards; }
+.ico-play .i-line { animation: writeLine 0.45s var(--ease) backwards; }
+.ico-play .i-line2 { animation-delay: 0.22s; }
+.ico-play.is-mod svg { animation: icoBounce 0.6s cubic-bezier(0.34, 1.56, 0.64, 1); }
+@keyframes roofHop { 40% { transform: translateY(-2.2px); } }
+@keyframes doorOpen { 35%, 65% { transform: scaleX(0.2); } }
+@keyframes pageTurn { from { opacity: 1; transform: scaleX(1); } to { opacity: 0; transform: scaleX(-0.75); } }
+@keyframes linesHide { 25%, 70% { opacity: 0.15; } }
+@keyframes starSpin { 50% { transform: rotate(45deg) scale(1.2); } to { transform: rotate(90deg); } }
+@keyframes twinkle { 40% { transform: scale(0.2); opacity: 0.3; } 75% { transform: scale(1.35); } }
+@keyframes writeLine { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
+@keyframes icoBounce { 40% { transform: translateY(-3px) scale(1.08); } }
+
+/* hoja de módulo: nombre, ícono y plantilla */
+.pick-group { display: grid; gap: 8px; }
+.icon-pick { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; }
+.icon-opt {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 1;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  color: var(--muted);
+  transition: border-color 0.2s var(--ease), color 0.2s var(--ease), background-color 0.2s var(--ease);
+}
+.icon-opt[aria-checked="true"] { color: var(--paper); background: var(--ink); border-color: var(--ink); }
+.tpl-pick { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.tpl-opt {
+  display: grid;
+  gap: 2px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  text-align: left;
+  transition: border-color 0.2s var(--ease);
+}
+.tpl-opt[aria-checked="true"] { border-color: var(--ink); box-shadow: inset 0 0 0 1px var(--ink); }
+.tpl-opt:disabled { opacity: 0.45; cursor: default; }
+.tpl-name { font-size: var(--step-0); color: var(--ink); }
+.tpl-desc { font-size: 11px; color: var(--muted); }
+@media (hover: hover) and (pointer: fine) {
+  .icon-opt:not([aria-checked="true"]):hover, .tpl-opt:not(:disabled):not([aria-checked="true"]):hover { border-color: var(--muted); color: var(--ink); }
+}
+
+/* página de un módulo (plantilla "En blanco") */
+.module-head { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; }
+.module-text {
+  display: block;
+  width: 100%;
+  min-height: 40vh;
+  padding: 0;
+  border: 0;
+  resize: none;
+  background: none;
+  color: var(--ink);
+  font: 400 var(--step-1)/1.7 var(--sans);
+  outline: none;
+}
+.module-text::placeholder { color: var(--faint); }
+.module-state { min-height: 1.5em; margin: 12px 0 0; font-size: 11px; }
 
 /* ================= página ================= */
 .page {
@@ -966,9 +1156,6 @@ main, .sheet-wrap { font-family: var(--sans); }
 
 /* ---------- navegación: solo mono ---------- */
 .nav, .topbar, .nav a { font-family: var(--mono); }
-.nav a { font-size: clamp(24px, 7vw, 30px); line-height: 1.6; letter-spacing: -0.01em; }
-.nav a[aria-current] { font-style: normal; font-weight: 700; }
-@media (min-width: 900px) { .nav a { font-size: 36px; } }
 
 /* ---------- actividad ---------- */
 .act-txt small { font-family: var(--mono); font-size: 10px; }
@@ -1450,38 +1637,6 @@ main, .sheet-wrap { font-family: var(--sans); }
 .setting-name { margin: 0; font-size: var(--step-1); }
 .setting-hint { margin: 2px 0 0; font-size: 11px; line-height: 1.5; }
 .setting .chips { flex: none; }
-/* interruptor (ajustes del perfil) */
-.toggle {
-  flex: none;
-  position: relative;
-  width: 52px;
-  height: 44px;
-}
-.toggle::before {
-  content: "";
-  position: absolute;
-  left: 2px;
-  top: 8px;
-  width: 48px;
-  height: 28px;
-  border-radius: 99px;
-  background: var(--faint);
-  transition: background-color 0.3s var(--ease);
-}
-.toggle::after {
-  content: "";
-  position: absolute;
-  left: 5px;
-  top: 11px;
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  background: var(--paper);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
-  transition: transform 0.3s var(--ease);
-}
-.toggle[aria-checked="true"]::before { background: var(--ink); }
-.toggle[aria-checked="true"]::after { transform: translateX(20px); }
 
 /* =====================================================================
    MOVIMIENTO (ajustes): data-motion en <html> = full | still
@@ -1588,8 +1743,6 @@ body.nav-open .profile-bubble { opacity: 0; pointer-events: none; }
 }
 .scene-name { padding: 0 4px; font-size: 11px; letter-spacing: 0.06em; color: var(--muted); }
 .scene-card[aria-checked="true"] .scene-name { color: var(--ink); }
-/* interruptor invisible que da los pulsos extra de háptica en iPhone */
-.haptic-tick { position: fixed; left: 0; top: 0; width: 1px; height: 1px; overflow: hidden; opacity: 0; pointer-events: none; }
 
 /* redibujo por un cambio de otro dispositivo: la sección nueva se arma
    invisible por detrás y aparece sin transición (ver route en app.js) */

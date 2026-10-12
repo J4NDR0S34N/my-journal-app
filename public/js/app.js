@@ -4,6 +4,8 @@ import { esc, toast } from "./lib/ui.js";
 import { applyMotion, startTheme } from "./lib/prefs.js";
 import { mountProfile, setProfile } from "./lib/profile.js";
 import { syncScenes } from "./lib/scenes.js";
+import { modules, moduleById, loadModules, onModules, iconSvg } from "./lib/modules.js";
+import { openModuleSheet } from "./lib/moduleSheet.js";
 import { isCollectionId } from "./lib/collections.js";
 import { startLuz } from "./lib/luz.js";
 
@@ -13,8 +15,24 @@ const ROUTES = [
   ["misc", "Miscelánea", () => import("./views/misc.js")],
   ["notas", "Notas", () => import("./views/notas.js")],
 ];
+// Módulos propios (#/m/{id}): no van en ROUTES; el menú los agrega aparte.
+const MODULE_ROUTE = ["m", "Módulo", () => import("./views/modulo.js")];
+
+// Íconos del menú (trazo, en el color del texto).
+const ico = (d) => `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
+// Cada uno tiene partes con clase para su microanimación (ver .ico-play en
+// styles.css): la puerta y el techo de Inicio, las páginas de Colección, las
+// estrellas de Miscelánea y las líneas de Notas.
+const ICONS = {
+  inicio: ico(`<path class="i-roof" d="M3.5 10.5 12 3.8l8.5 6.7"/><path d="M5.8 9v11h12.4V9"/><path class="i-door" d="M10.2 20v-6.2h3.6V20"/>`),
+  coleccion: ico(`<rect x="5" y="3.5" width="14" height="17" rx="2"/><path d="M8.5 3.5v17"/><path class="i-lines" d="M11.5 8h4.5M11.5 11.5h4.5"/><path class="i-page" d="M8.5 5h8.8v14H8.5"/><path class="i-page i-page2" d="M8.5 5h8.8v14H8.5"/>`),
+  misc: ico(`<path class="i-star1" d="M10 3.5c.6 3.7 2.3 5.4 6 6-3.7.6-5.4 2.3-6 6-.6-3.7-2.3-5.4-6-6 3.7-.6 5.4-2.3 6-6z"/><path class="i-star2" d="M18 14.5c.3 1.7 1.1 2.5 2.8 2.8-1.7.3-2.5 1.1-2.8 2.8-.3-1.7-1.1-2.5-2.8-2.8 1.7-.3 2.5-1.1 2.8-2.8z"/>`),
+  notas: ico(`<path d="M6 3.5h8l4 4v13H6z"/><path d="M14 3.5v4h4"/><path class="i-line" pathLength="1" d="M9 12h6"/><path class="i-line i-line2" pathLength="1" d="M9 15.5h6"/>`),
+};
 
 const nav = document.getElementById("nav");
+const tabbar = document.getElementById("tabbar");
+const dockAdd = document.getElementById("dock-add");
 const navToggle = document.getElementById("nav-toggle");
 const navCurrent = document.getElementById("nav-current");
 const view = document.getElementById("view");
@@ -27,10 +45,76 @@ let lastDay = dayKey();
 
 // ---------- navegación ----------
 // El menú tiene solo las secciones; tema, ajustes y salir están en el panel
-// del perfil (burbuja abajo a la izquierda, ver lib/profile.js).
+// del perfil (burbuja arriba a la derecha, ver lib/profile.js).
+// El logo abre el menú completo (a pantalla completa). Cerrado, los íconos
+// quedan a la vista: en escritorio, una columna a la izquierda; en el
+// celular, una barra abajo.
+// Junto a la barra, la burbuja + agrega módulos propios (lib/modules.js).
+function navItems() {
+  return [
+    ...ROUTES.map(([k, l]) => ({ route: k, label: l, icon: ICONS[k], mod: false })),
+    ...modules().map((m) => ({ route: `m/${m.id}`, label: m.name, icon: iconSvg(m.icon), mod: true })),
+  ];
+}
+function paintNav() {
+  const items = navItems();
+  nav.innerHTML = `<ul>${items.map((it, i) => `<li style="--i:${i}"><a href="#/${it.route}" data-route="${it.route}"${it.mod ? ' class="is-mod"' : ""}><span class="nav-ico">${it.icon}</span><span class="nav-lbl">${esc(it.label)}</span></a></li>`).join("")}</ul>`;
+  tabbar.innerHTML = items.map((it) => `<a href="#/${it.route}" data-route="${it.route}"${it.mod ? ' class="is-mod"' : ""} aria-label="${esc(it.label)}" title="${esc(it.label)}">${it.icon}</a>`).join("");
+  markCurrent(false);
+}
 function buildNav() {
-  nav.innerHTML = `<ul>${ROUTES.map(([k, l], i) => `<li style="--i:${i}"><a href="#/${k}" data-route="${k}">${l}</a></li>`).join("")}</ul>`;
+  paintNav();
+  onModules(() => { paintNav(); if (currentRoute()[0] === "m") paintLabel(); });
   nav.addEventListener("click", (e) => { if (e.target.closest("a")) setNavOpen(false); });
+  dockAdd.addEventListener("click", () => openModuleSheet());
+  // microanimación del ícono: al pasar el cursor y al tocarlo
+  for (const el of [nav, tabbar]) {
+    el.addEventListener("pointerover", (e) => {
+      const a = e.target.closest("a");
+      if (a && e.pointerType === "mouse" && !a.contains(e.relatedTarget)) playIcon(a);
+    });
+    el.addEventListener("pointerdown", (e) => { const a = e.target.closest("a"); if (a && e.pointerType !== "mouse") playIcon(a); });
+  }
+}
+
+function playIcon(a) {
+  a.classList.remove("ico-play");
+  void a.offsetWidth; // reinicia la animación si ya estaba corriendo
+  a.classList.add("ico-play");
+  clearTimeout(a._ico);
+  a._ico = setTimeout(() => a.classList.remove("ico-play"), 1200);
+}
+
+// La ruta del menú que corresponde a la sección actual ("inicio", "m/{id}").
+const currentNavRoute = () => {
+  const [key] = currentRoute();
+  return key === "m" ? `m/${routeParams()[0] || ""}` : key;
+};
+let lastNavRoute = "";
+// Marca la sección actual; si cambió (entered), su ícono hace la animación.
+function markCurrent(entered = true) {
+  const r = currentNavRoute();
+  document.querySelectorAll("#nav a, #tabbar a").forEach((a) => {
+    const on = a.dataset.route === r;
+    on ? a.setAttribute("aria-current", "page") : a.removeAttribute("aria-current");
+    if (on && entered && r !== lastNavRoute) playIcon(a);
+  });
+  if (entered) lastNavRoute = r;
+  // en el celular, que el ícono actual quede a la vista si la barra se desliza
+  const cur = tabbar.querySelector("[aria-current]");
+  if (cur && tabbar.scrollWidth > tabbar.clientWidth) {
+    const left = cur.offsetLeft - (tabbar.clientWidth - cur.offsetWidth) / 2;
+    tabbar.scrollTo({ left, behavior: entered ? "smooth" : "auto" });
+  }
+}
+
+// El botón del menú muestra la sección actual (el nombre accesible lo incluye).
+function paintLabel() {
+  const [key, label] = currentRoute();
+  const name = key === "m" ? moduleById(routeParams()[0])?.name || label : label;
+  navCurrent.textContent = name;
+  navToggle.setAttribute("aria-label", `Menú: ${name}`);
+  document.title = key === "inicio" ? "My Journal" : `${name} — My Journal`;
 }
 
 async function logOut() {
@@ -75,7 +159,7 @@ document.addEventListener("keydown", (e) => {
 
 // "#/coleccion/musica" -> sección "coleccion" con parámetros ["musica"].
 const hashParts = () => location.hash.replace(/^#\/?/, "").split("?")[0].split("/");
-const currentRoute = () => ROUTES.find((r) => r[0] === hashParts()[0]) || ROUTES[0];
+const currentRoute = () => (hashParts()[0] === "m" ? MODULE_ROUTE : ROUTES.find((r) => r[0] === hashParts()[0]) || ROUTES[0]);
 const routeParams = () => hashParts().slice(1).map((p) => decodeURIComponent(p));
 
 // Enlaces viejos que siguen funcionando:
@@ -104,17 +188,13 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 async function route({ quiet = false } = {}) {
   const to = redirectFor();
   if (to) return location.replace(to); // vuelve a entrar por hashchange
-  const [key, label, load] = currentRoute();
+  const [key, , load] = currentRoute();
   const params = routeParams();
   const seq = ++renderSeq;
   if (!quiet) setNavOpen(false);
   resetUsed();
-  nav.querySelectorAll("a").forEach((a) =>
-    a.dataset.route === key ? a.setAttribute("aria-current", "page") : a.removeAttribute("aria-current"));
-  // El botón del menú muestra la sección actual (el nombre accesible lo incluye).
-  navCurrent.textContent = label;
-  navToggle.setAttribute("aria-label", `Menú: ${label}`);
-  document.title = key === "inicio" ? "My Journal" : `${label} — My Journal`;
+  markCurrent(!quiet);
+  paintLabel();
   const old = view.firstElementChild;
   if (!quiet) old?.classList.add("leaving");
   try {
@@ -291,6 +371,7 @@ async function boot() {
     if (!isLocal) setProfile(user);
     rememberSignedIn(true);
     syncScenes();
+    loadModules();
     if (optimistic) optimistic = false; // ya se está mostrando
     else start();
     // Verifica permisos (y precarga la presencia) sin frenar la primera pantalla.

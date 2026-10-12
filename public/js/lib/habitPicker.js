@@ -1,10 +1,9 @@
 // Botones de hábitos (grilla 3×3). Tocarlos solo cambia un borrador; se guarda
 // con el botón Guardar de quien la usa: Inicio (hoy) y Progreso (otros días).
 
-import { HABITS, countDone } from "../habits.js";
+import { HABITS } from "../habits.js";
 import { set } from "../store.js";
 import { esc } from "./ui.js";
-import { haptic } from "./prefs.js";
 import { logHabit } from "./activity.js";
 
 export function habitButtons(h = {}, cls = "") {
@@ -24,7 +23,6 @@ export function bindHabitButtons(el, draft, onChange) {
     draft[k] = !draft[k];
     b.classList.toggle("on", draft[k]);
     b.setAttribute("aria-pressed", draft[k]);
-    haptic(draft[k] ? countDone(draft) : 0, HABITS.length);
     onChange?.(draft);
   });
 }

@@ -4,7 +4,7 @@
 // salga con nombre desde el primer cuadro; se borran al cerrar sesión.
 
 import { esc, openSheet } from "./ui.js";
-import { hapticsOn, setHaptics, MOTIONS, motion, setMotion, onMotion, THEMES, themePref, setThemePref } from "./prefs.js";
+import { MOTIONS, motion, setMotion, onMotion, THEMES, themePref, setThemePref } from "./prefs.js";
 import { DAY_SCENES, NIGHT_SCENES, scenes, setScene, onScenes } from "./scenes.js";
 import { createSky } from "./sky.js";
 
@@ -121,13 +121,6 @@ function openPanel() {
         ${sceneCards("night", NIGHT_SCENES, scenes().night)}
       </div>
       <h3 class="label profile-section">Ajustes</h3>
-      <div class="setting">
-        <div>
-          <p class="setting-name">Vibración háptica</p>
-          <p class="mono muted setting-hint">Vibración breve al marcar un hábito.</p>
-        </div>
-        <button class="toggle" role="switch" data-set="haptics" aria-checked="${hapticsOn()}" aria-label="Vibración háptica"></button>
-      </div>
       <div class="setting setting-col">
         <div>
           <p class="setting-name">Movimiento</p>
@@ -157,13 +150,6 @@ function openPanel() {
     if (pick("theme", setThemePref) || pick("motion", setMotion)) return;
     const card = e.target.closest(".scene-card");
     if (card) return setScene(card.dataset.scenePart, card.dataset.scene); // onScenes marca la elegida
-    const t = e.target.closest('[data-set="haptics"]');
-    if (t) {
-      const on = t.getAttribute("aria-checked") !== "true";
-      setHaptics(on);
-      t.setAttribute("aria-checked", on);
-      return;
-    }
     if (e.target.closest('[data-act="out"]')) {
       sh.close();
       await opts.signOut();

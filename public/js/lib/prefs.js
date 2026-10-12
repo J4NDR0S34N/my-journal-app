@@ -1,46 +1,8 @@
 // Preferencias de este dispositivo (localStorage), editables en el panel
-// del perfil (burbuja abajo a la izquierda).
-
-import { isIOS } from "./device.js";
+// del perfil (burbuja arriba a la derecha): movimiento y tema.
 
 const read = (k) => { try { return localStorage.getItem(k); } catch { return null; } };
 const write = (k, v) => { try { localStorage.setItem(k, v); } catch {} };
-
-// ---------- háptica ----------
-// Android: navigator.vibrate. iPhone (Safari iOS 18+): el "clic" de un
-// interruptor nativo invisible. Apagarla en ajustes desactiva ambas.
-const HAPTICS = "mj:haptics";
-export const hapticsOn = () => read(HAPTICS) !== "0";
-export const setHaptics = (on) => write(HAPTICS, on ? "1" : "0");
-
-// La intensidad crece con los hábitos marcados (n de total). Android: la
-// vibración dura más (8 → 50 ms). iPhone no deja elegir la fuerza, así que
-// se suman "clics": 1 hasta 3 hábitos, 2 desde 4, 3 desde 7. Al desmarcar,
-// un toque mínimo (n = 0).
-export function haptic(n = 1, total = 9) {
-  if (!hapticsOn()) return;
-  if ("vibrate" in navigator) {
-    navigator.vibrate(n ? Math.round(8 + 42 * Math.min(1, n / total)) : 6);
-    return;
-  }
-  if (!isIOS) return;
-  iosTick(); // el primero, dentro del toque
-  const extra = n >= 7 ? 2 : n >= 4 ? 1 : 0;
-  for (let i = 1; i <= extra; i++) setTimeout(iosTick, i * 90);
-}
-
-// Un interruptor nativo invisible: tocarlo por código también vibra en iOS 18+.
-let tickLabel;
-function iosTick() {
-  if (!tickLabel) {
-    tickLabel = document.createElement("label");
-    tickLabel.className = "haptic-tick";
-    tickLabel.setAttribute("aria-hidden", "true");
-    tickLabel.innerHTML = `<input type="checkbox" switch tabindex="-1" />`;
-    document.body.append(tickLabel);
-  }
-  tickLabel.click();
-}
 
 // ---------- movimiento ----------
 // "completo" o "quieto" (sin animaciones; la ilustración de puntos queda
