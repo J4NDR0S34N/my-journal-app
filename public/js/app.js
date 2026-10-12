@@ -1,7 +1,7 @@
 import { initStore, onUser, signIn, signOut, isLocal, list, clearCache, onRemoteChange, usedCollections, resetUsed } from "./store.js";
 import { dayKey } from "./lib/dates.js";
 import { esc, toast } from "./lib/ui.js";
-import { applyMotion, startTheme } from "./lib/prefs.js";
+import { applyMotion, startTheme, motion } from "./lib/prefs.js";
 import { mountProfile, setProfile } from "./lib/profile.js";
 import { syncScenes } from "./lib/scenes.js";
 import { modules, moduleById, loadModules, onModules, iconSvg } from "./lib/modules.js";
@@ -231,6 +231,20 @@ async function route({ quiet = false } = {}) {
 
 // En el teléfono no hay "pasar el cursor": al tocar el logo del menú o la
 // burbuja del perfil se reproduce la misma microanimación (ver .tap en el CSS).
+// El logo gira a medida que se scrollea: hacia abajo en un sentido, hacia
+// arriba en el otro (un tercio de grado por píxel). En movimiento "quieto", no.
+function spinWithScroll(logo) {
+  let queued = false;
+  const paint = () => {
+    queued = false;
+    logo.style.setProperty("--spin", motion() === "still" ? "0deg" : `${(scrollY * 0.33).toFixed(1)}deg`);
+  };
+  addEventListener("scroll", () => {
+    if (!queued) { queued = true; requestAnimationFrame(paint); }
+  }, { passive: true });
+  paint();
+}
+
 function tapPulse(el) {
   if (!el) return;
   let t;
@@ -342,6 +356,7 @@ async function boot() {
   buildNav();
   mountProfile({ isLocal, signOut: logOut, switchAccount, parent: document.querySelector(".topbar") });
   tapPulse(navToggle);
+  spinWithScroll(navToggle.querySelector(".nav-logo"));
   tapPulse(document.querySelector(".profile-bubble"));
   // El código de la sección se baja al mismo tiempo que Firebase.
   currentRoute()[2]().catch(() => {});

@@ -2,6 +2,11 @@
 
 Las versiones son etiquetas de git (`v0.10`, `v0.50`, …).
 
+## Sin publicar
+
+- El logo del menú gira a medida que se scrollea (hacia abajo en un sentido,
+  hacia arriba en el otro). En movimiento "quieto" no gira.
+
 ## v0.50
 
 ### Inicio
