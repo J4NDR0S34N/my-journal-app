@@ -22,6 +22,7 @@ const WHERE = { habit: "Hábitos", games: "Colección", music: "Música", notes:
 const ROUTE = { habit: "inicio", games: "coleccion/videojuegos", music: "coleccion/musica", notes: "notas", misc: "misc" };
 const HOME_PREFS = "mj:home-layout:v2";
 const HOME_MODULES = ["spotlight", "games", "wishlist", "music", "today", "progress", "activity", "reflection"];
+const HOME_LAYOUTS = ["showcase", "columns", "stream"];
 const PROGRESS_AREAS = [
   { label: "Fuerza", habits: ["gym"], cue: "Cada día de gimnasio suma 1 punto." },
   { label: "Destreza", habits: ["run", "gaming", "drawing"], cue: "Correr, jugar o dibujar suma 1 punto al día." },
@@ -59,13 +60,14 @@ function homePrefs() {
     for (const id of HOME_MODULES) if (typeof value.visible?.[id] === "boolean") visible[id] = value.visible[id];
     return {
       preset: HOME_PRESETS[value.style] ? value.style : "classic",
+      layout: HOME_LAYOUTS.includes(value.layout) ? value.layout : "showcase",
       visible,
       order,
     };
-  } catch { return { preset: "classic", visible: Object.fromEntries(HOME_MODULES.map((id) => [id, true])), order: [...HOME_MODULES] }; }
+  } catch { return { preset: "classic", layout: "showcase", visible: Object.fromEntries(HOME_MODULES.map((id) => [id, true])), order: [...HOME_MODULES] }; }
 }
 function saveHomePrefs(prefs) {
-  try { localStorage.setItem(HOME_PREFS, JSON.stringify({ style: prefs.preset, visible: prefs.visible, order: prefs.order })); return true; }
+  try { localStorage.setItem(HOME_PREFS, JSON.stringify({ style: prefs.preset, layout: prefs.layout, visible: prefs.visible, order: prefs.order })); return true; }
   catch { return false; }
 }
 
@@ -103,7 +105,6 @@ export async function render(root) {
         <div class="home-main">
           <p class="mono label home-date"><span class="home-clock"></span><span class="home-temp" hidden></span></p>
           <h1 class="home-greet"></h1>
-          <button class="home-customize" type="button">Personalizar Inicio <span aria-hidden="true">✳</span></button>
           <a class="streak mono" href="#/progreso" hidden></a>
         </div>
       </div>
@@ -131,6 +132,10 @@ export async function render(root) {
       </section>
       <section class="home-widget home-reflection" data-home-widget="reflection" aria-label="Pregunta del día"><form class="umbral" autocomplete="off"><label class="umbral-q" for="umbral-in">¿Qué te gustaría recordar dentro de un año?</label><input id="umbral-in" class="umbral-in" type="text" maxlength="280" enterkeyhint="done" placeholder="Una línea alcanza…" /><span class="umbral-ok mono muted" aria-live="polite"></span></form></section>
       </div></div>
+      <section class="home-customize-row" aria-label="Personalizá tu Inicio">
+        <div><p class="mono label">TU ESPACIO</p><h2>Hecho a tu manera</h2><p>Elegí qué módulos ver y cómo acomodarlos.</p></div>
+        <button class="home-customize" type="button">Personalizar Inicio <span aria-hidden="true">✳</span></button>
+      </section>
       <footer class="home-foot mono"><span class="foot-ico"></span><span class="foot-txt"></span></footer>
     </section>`;
 
@@ -139,6 +144,7 @@ export async function render(root) {
   const applyHomePrefs = () => {
     const home = $(".home");
     home.dataset.homeStyle = prefs.preset;
+    home.dataset.homeLayout = prefs.layout;
     home.style.setProperty("--home-accent", HOME_PRESETS[prefs.preset].accent);
     for (const id of HOME_MODULES) {
       const widget = root.querySelector(`[data-home-widget="${id}"]`);
@@ -155,11 +161,24 @@ export async function render(root) {
       const [label, hint] = MODULE_INFO[id];
       return `<div class="home-section-toggle"><span class="home-section-position mono">0${index + 1}</span><span class="home-section-copy"><b>${label}</b><small>${hint}</small></span><span class="home-section-actions"><button type="button" data-home-move="${id}:up" aria-label="Mover ${label} arriba" ${index === 0 ? "disabled" : ""}>↑</button><button type="button" data-home-move="${id}:down" aria-label="Mover ${label} abajo" ${index === prefs.order.length - 1 ? "disabled" : ""}>↓</button><input type="checkbox" data-home-visible="${id}" aria-label="Mostrar ${label}" ${prefs.visible[id] ? "checked" : ""}></span></div>`;
     }).join("");
-    const sheet = openSheet(`<div class="home-customizer"><p class="mono label">TU ESPACIO</p><h2>Personalizar Inicio</h2><p class="muted">Elegí una presentación, mové los módulos con ↑ ↓ y activá solo los que quieras ver.</p>
+    const layoutIcon = { showcase: '<svg viewBox="0 0 24 24"><rect x="3" y="3" width="8" height="8" rx="1"/><rect x="13" y="3" width="8" height="8" rx="1"/><rect x="3" y="13" width="8" height="8" rx="1"/><rect x="13" y="13" width="8" height="8" rx="1"/></svg>', columns: '<svg viewBox="0 0 24 24"><rect x="3" y="4" width="8" height="16" rx="1.5"/><rect x="13" y="4" width="8" height="7" rx="1.5"/><rect x="13" y="13" width="8" height="7" rx="1.5"/></svg>', stream: '<svg viewBox="0 0 24 24"><path d="M9 6h12M9 12h12M9 18h12"/><circle cx="4" cy="6" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="4" cy="18" r="1"/></svg>' };
+    const sheet = openSheet(`<div class="home-customizer"><p class="mono label">TU ESPACIO</p><h2>Personalizar Inicio</h2><p class="muted">Elegí cómo se distribuyen tus módulos, movelos con ↑ ↓ y activá solo los que quieras ver.</p>
+      <h3>Distribución</h3><div class="home-layout-choices" role="group" aria-label="Distribución del Inicio">${[["showcase", "Mosaico"], ["columns", "Editorial"], ["stream", "Lista"]].map(([id, label]) => `<button type="button" class="home-layout-choice${prefs.layout === id ? " selected" : ""}" data-home-layout="${id}" aria-label="Diseño ${label}" aria-pressed="${prefs.layout === id}">${layoutIcon[id]}<span>${label}</span></button>`).join("")}</div>
       <h3>Estilo visual</h3><div class="home-preset-list">${Object.entries(HOME_PRESETS).map(([id, item]) => `<button type="button" data-home-preset="${id}" class="home-preset${prefs.preset === id ? " selected" : ""}"><span class="home-preset-swatch" style="--swatch:${item.accent}"></span><span><b>${item.label}</b><small>${item.hint}</small></span><span class="home-preset-check">${prefs.preset === id ? "✓" : ""}</span></button>`).join("")}</div>
       <h3>Módulos · ordenar y mostrar</h3><div class="home-preset-list home-section-list">${sectionCards()}</div>
       <p class="home-customizer-note mono">Tus preferencias quedan guardadas en este dispositivo.</p></div>`);
     sheet.el.classList.add("home-customizer-sheet");
+    sheet.el.addEventListener("click", (event) => {
+      const choice = event.target.closest("[data-home-layout]");
+      if (!choice) return;
+      prefs.layout = choice.dataset.homeLayout;
+      saveHomePrefs(prefs); applyHomePrefs();
+      sheet.el.querySelectorAll("[data-home-layout]").forEach((button) => {
+        const selected = button.dataset.homeLayout === prefs.layout;
+        button.classList.toggle("selected", selected);
+        button.setAttribute("aria-pressed", selected);
+      });
+    });
     sheet.el.addEventListener("click", (event) => {
       const choice = event.target.closest("[data-home-preset]");
       if (!choice) return;
@@ -374,13 +393,14 @@ export async function render(root) {
 
 function shelfHtml(title, items, kind, emptyText, href) {
   const isGame = kind === "games";
+  const visibleCount = Math.min(items.length, 3);
   const cards = items.slice(0, 8).map((item) => {
     const cover = isGame ? (item.boxUrl || item.coverUrl) : (item.coverCustom || item.coverFast || item.coverUrl);
     const sub = isGame ? [item.platform, item.releaseDate?.slice(0, 4)].filter(Boolean).join(" · ") : item.artist;
     const target = isGame ? `#/coleccion/videojuegos/${encodeURIComponent(item.id)}` : "#/coleccion/musica";
     return `<a class="home-shelf-card${cover ? "" : " no-cover"}" href="${target}" aria-label="Abrir ${esc(item.title)}"><span class="home-shelf-art">${cover ? `<img src="${esc(cover)}" alt="" loading="lazy" decoding="async" />` : `<span aria-hidden="true">${isGame ? "✳" : "♫"}</span>`}</span><span class="home-shelf-title">${esc(item.title)}</span><span class="home-shelf-sub">${esc(sub || (isGame ? "Juego" : "Disco"))}</span></a>`;
   }).join("");
-  return `<div class="home-shelf-head"><div><span class="mono label">${isGame ? "VIDEOJUEGOS" : "EN TU BIBLIOTECA"}</span><h2>${title}</h2></div><a class="home-shelf-more mono" href="${href}">Ver todo <span aria-hidden="true">↗</span></a></div>${cards ? `<div class="home-shelf-row">${cards}</div>` : `<a class="home-shelf-empty" href="${href}">${emptyText}<span aria-hidden="true">↗</span></a>`}`;
+  return `<div class="home-shelf-head"><div><span class="mono label">${isGame ? "VIDEOJUEGOS" : "EN TU BIBLIOTECA"}</span><h2>${title}</h2></div><a class="home-shelf-more mono" href="${href}">Ver todo <span aria-hidden="true">↗</span></a></div>${cards ? `<div class="home-shelf-row" data-count="${visibleCount}">${cards}</div>` : `<a class="home-shelf-empty" href="${href}">${emptyText}<span aria-hidden="true">↗</span></a>`}`;
 }
 
 function spotlightHtml(item) {

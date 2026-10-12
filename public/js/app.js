@@ -13,6 +13,13 @@ const ROUTES = [
   ["misc", "Miscelánea", () => import("./views/misc.js")],
   ["notas", "Notas", () => import("./views/notas.js")],
 ];
+const ROUTE_ICONS = {
+  inicio: '<svg viewBox="0 0 24 24"><path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>',
+  progreso: '<svg viewBox="0 0 24 24"><path d="M4 19V5m0 14h16M7 15l4-4 3 2 5-6"/><circle cx="19" cy="7" r="1"/></svg>',
+  coleccion: '<svg viewBox="0 0 24 24"><path d="M4 5.5 17 3l3 15-13 2.5zM7 7l9-1.7M8 11l9-1.7M9 15l8-1.7"/><path d="M4 5.5v14A1.5 1.5 0 0 0 5.5 21H19"/></svg>',
+  misc: '<svg viewBox="0 0 24 24"><path d="m12 3 1.7 5.3L19 10l-5.3 1.7L12 17l-1.7-5.3L5 10l5.3-1.7zM19 15l1 2.5 2.5 1-2.5 1L19 22l-1-2.5-2.5-1 2.5-1z"/></svg>',
+  notas: '<svg viewBox="0 0 24 24"><path d="M6 3h9l4 4v14H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2zM14 3v5h5M8 13h8M8 17h6"/></svg>',
+};
 
 const nav = document.getElementById("nav");
 const navToggle = document.getElementById("nav-toggle");
@@ -29,7 +36,7 @@ let lastDay = dayKey();
 // El menú tiene solo las secciones; tema, ajustes y salir están en el panel
 // del perfil (burbuja abajo a la izquierda, ver lib/profile.js).
 function buildNav() {
-  nav.innerHTML = `<ul>${ROUTES.map(([k, l], i) => `<li style="--i:${i}"><a href="#/${k}" data-route="${k}">${l}</a></li>`).join("")}</ul>`;
+  nav.innerHTML = `<ul>${ROUTES.map(([k, l], i) => `<li style="--i:${i}"><a href="#/${k}" data-route="${k}" aria-label="${l}"><span class="nav-item-icon" aria-hidden="true">${ROUTE_ICONS[k]}</span><span class="nav-item-label">${l}</span></a></li>`).join("")}</ul>`;
   nav.addEventListener("click", (e) => { if (e.target.closest("a")) setNavOpen(false); });
 }
 
