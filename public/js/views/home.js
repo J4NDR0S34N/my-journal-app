@@ -159,11 +159,11 @@ export async function render(root) {
   $(".home-customize").addEventListener("click", () => {
     const sectionCards = () => prefs.order.map((id, index) => {
       const [label, hint] = MODULE_INFO[id];
-      return `<div class="home-section-toggle"><span class="home-section-position mono">0${index + 1}</span><span class="home-section-copy"><b>${label}</b><small>${hint}</small></span><span class="home-section-actions"><button type="button" data-home-move="${id}:up" aria-label="Mover ${label} arriba" ${index === 0 ? "disabled" : ""}>↑</button><button type="button" data-home-move="${id}:down" aria-label="Mover ${label} abajo" ${index === prefs.order.length - 1 ? "disabled" : ""}>↓</button><input type="checkbox" data-home-visible="${id}" aria-label="Mostrar ${label}" ${prefs.visible[id] ? "checked" : ""}></span></div>`;
+      return `<div class="home-section-toggle" data-home-row="${id}"><button type="button" class="home-section-drag" draggable="true" data-home-drag="${id}" aria-label="Arrastrar ${label} para cambiar su posición">⠿</button><span class="home-section-position mono">0${index + 1}</span><span class="home-section-copy"><b>${label}</b><small>${hint}</small></span><span class="home-section-actions"><button type="button" data-home-move="${id}:up" aria-label="Mover ${label} arriba" ${index === 0 ? "disabled" : ""}>↑</button><button type="button" data-home-move="${id}:down" aria-label="Mover ${label} abajo" ${index === prefs.order.length - 1 ? "disabled" : ""}>↓</button><input type="checkbox" data-home-visible="${id}" aria-label="Mostrar ${label}" ${prefs.visible[id] ? "checked" : ""}></span></div>`;
     }).join("");
     const layoutIcon = { showcase: '<svg viewBox="0 0 24 24"><rect x="3" y="3" width="8" height="8" rx="1"/><rect x="13" y="3" width="8" height="8" rx="1"/><rect x="3" y="13" width="8" height="8" rx="1"/><rect x="13" y="13" width="8" height="8" rx="1"/></svg>', columns: '<svg viewBox="0 0 24 24"><rect x="3" y="4" width="8" height="16" rx="1.5"/><rect x="13" y="4" width="8" height="7" rx="1.5"/><rect x="13" y="13" width="8" height="7" rx="1.5"/></svg>', stream: '<svg viewBox="0 0 24 24"><path d="M9 6h12M9 12h12M9 18h12"/><circle cx="4" cy="6" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="4" cy="18" r="1"/></svg>' };
-    const sheet = openSheet(`<div class="home-customizer"><p class="mono label">TU ESPACIO</p><h2>Personalizar Inicio</h2><p class="muted">Elegí cómo se distribuyen tus módulos, movelos con ↑ ↓ y activá solo los que quieras ver.</p>
-      <h3>Distribución</h3><div class="home-layout-choices" role="group" aria-label="Distribución del Inicio">${[["showcase", "Mosaico"], ["columns", "Editorial"], ["stream", "Lista"]].map(([id, label]) => `<button type="button" class="home-layout-choice${prefs.layout === id ? " selected" : ""}" data-home-layout="${id}" aria-label="Diseño ${label}" aria-pressed="${prefs.layout === id}">${layoutIcon[id]}<span>${label}</span></button>`).join("")}</div>
+    const sheet = openSheet(`<div class="home-customizer"><p class="mono label">TU ESPACIO</p><h2>Personalizar Inicio</h2><p class="muted">Elegí una distribución, arrastrá los módulos o usá ↑ ↓, y activá solo los que quieras ver.</p>
+      <h3>Distribución</h3><div class="home-layout-choices" role="group" aria-label="Distribución del Inicio">${[["showcase", "Mosaico", "3 módulos por fila"], ["columns", "Revista", "Una portada y dos áreas"], ["stream", "Lista", "Todo en una columna"]].map(([id, label, hint]) => `<button type="button" class="home-layout-choice${prefs.layout === id ? " selected" : ""}" data-home-layout="${id}" aria-label="Diseño ${label}: ${hint}" aria-pressed="${prefs.layout === id}">${layoutIcon[id]}<span>${label}</span><small>${hint}</small></button>`).join("")}</div>
       <h3>Estilo visual</h3><div class="home-preset-list">${Object.entries(HOME_PRESETS).map(([id, item]) => `<button type="button" data-home-preset="${id}" class="home-preset${prefs.preset === id ? " selected" : ""}"><span class="home-preset-swatch" style="--swatch:${item.accent}"></span><span><b>${item.label}</b><small>${item.hint}</small></span><span class="home-preset-check">${prefs.preset === id ? "✓" : ""}</span></button>`).join("")}</div>
       <h3>Módulos · ordenar y mostrar</h3><div class="home-preset-list home-section-list">${sectionCards()}</div>
       <p class="home-customizer-note mono">Tus preferencias quedan guardadas en este dispositivo.</p></div>`);
@@ -194,6 +194,41 @@ export async function render(root) {
       [prefs.order[index], prefs.order[next]] = [prefs.order[next], prefs.order[index]];
       saveHomePrefs(prefs); applyHomePrefs();
       sheet.el.querySelector(".home-section-list").innerHTML = sectionCards();
+    });
+    let draggedSection = "";
+    const sectionList = sheet.el.querySelector(".home-section-list");
+    const persistDraggedOrder = () => {
+      prefs.order = [...sectionList.querySelectorAll("[data-home-row]")].map((row) => row.dataset.homeRow);
+      saveHomePrefs(prefs);
+      applyHomePrefs();
+      sectionList.innerHTML = sectionCards();
+    };
+    sectionList.addEventListener("dragstart", (event) => {
+      const handle = event.target.closest("[data-home-drag]");
+      if (!handle) return;
+      draggedSection = handle.dataset.homeDrag;
+      event.dataTransfer.effectAllowed = "move";
+      event.dataTransfer.setData("text/plain", draggedSection);
+      handle.closest("[data-home-row]").classList.add("is-dragging");
+    });
+    sectionList.addEventListener("dragover", (event) => {
+      const target = event.target.closest("[data-home-row]");
+      const moving = sectionList.querySelector(`[data-home-row="${draggedSection}"]`);
+      if (!draggedSection || !target || !moving || target === moving) return;
+      event.preventDefault();
+      const after = event.clientY > target.getBoundingClientRect().top + target.offsetHeight / 2;
+      sectionList.insertBefore(moving, after ? target.nextSibling : target);
+    });
+    sectionList.addEventListener("drop", (event) => {
+      if (!draggedSection) return;
+      event.preventDefault();
+      persistDraggedOrder();
+      draggedSection = "";
+    });
+    sectionList.addEventListener("dragend", () => {
+      if (!draggedSection) return;
+      sectionList.querySelector(`[data-home-row="${draggedSection}"]`)?.classList.remove("is-dragging");
+      draggedSection = "";
     });
     sheet.el.addEventListener("change", (event) => {
       const toggle = event.target.closest("[data-home-visible]");
