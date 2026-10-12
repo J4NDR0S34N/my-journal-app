@@ -1,6 +1,6 @@
 # My Journal
 
-App web personal (mobile-first): registro de hábitos, estadística, colecciones
+App web personal (mobile-first): hábitos del día (en Inicio), progreso, colecciones
 (videojuegos, música y las que crees), miscelánea y notas. Sitio estático en JS vanilla (sin build) +
 Firebase (Firestore, Auth y Hosting en el plan gratuito Spark).
 
@@ -52,8 +52,8 @@ Rutas del dueño; para el resto de las cuentas, anteponé `users/{uid}/`.
 
 | Colección | Documento |
 |---|---|
-| `days/{YYYY-MM-DD}` | `{ h: { gym, run, gaming, hydration, rest, projects, reading, drawing, movies }, respuesta? }` — `respuesta`: la línea de la pregunta del día en Inicio |
-| `notes/{id}` | `{ text, createdAt }` — el título se deriva del texto |
+| `days/{YYYY-MM-DD}` | `{ h: { gym, run, gaming, hydration, rest, projects, reading, drawing, movies } }` |
+| `notes/{id}` | `{ title?, text, createdAt }` — sin título propio, se muestran las primeras palabras del texto |
 | `games/{id}` | `{ title, coverUrl, releaseDate, platform, genre, status: "owned"\|"wishlist", addedAt }` |
 | `music/{id}` | `{ title, artist, coverUrl, releaseDate, genre, type: "album"\|"ep"\|"single", status: "listened"\|"pending", addedAt }` |
 | `misc/{id}` | `{ kind: "image"\|"link", imageUrl?, ratio?, url?, title?, note?, createdAt }` |
@@ -72,7 +72,7 @@ Rutas: `#/coleccion` (portal), `#/coleccion/videojuegos`,
 `#/coleccion/videojuegos/{idJuego}`, `#/coleccion/musica`, `#/coleccion/c-…`.
 Los enlaces viejos siguen andando: `#/coleccion/{idJuego}` →
 `#/coleccion/videojuegos/{idJuego}`, `#/musica` → `#/coleccion/musica` y
-`#/stats` → `#/estadistica`. No hay choque posible: los ids automáticos de
+`#/registro` → `#/inicio` y `#/stats` / `#/estadistica` → `#/progreso`. No hay choque posible: los ids automáticos de
 Firestore nunca llevan `-`.
 
 **Imágenes de Miscelánea:** Firebase Storage ya no está incluido en el plan
@@ -87,20 +87,27 @@ solo al abrir la imagen.
 cd tests
 npm install
 npm run test:rules   # reglas de Firestore en el emulador (requiere Java)
-npm test             # funciones puras (presencia)
+npm test             # funciones puras (racha)
 ```
+
+**Tiempo real:** cada colección que muestra una sección queda escuchando
+Firestore (`onSnapshot` en `public/js/store.js`). Si cambia desde otro
+dispositivo, la sección se redibuja sola y conserva el scroll. Espera si hay
+una hoja o el menú abiertos, o texto sin guardar en un campo.
 
 ## Dónde tocar
 
-- `public/js/habits.js`: hábitos y qué hábito suma a qué stat.
-- `public/js/lib/presence.js`: presencia del mes ("Presente X/N este mes" y los 7 puntos de la semana). Un día cuenta si tiene un hábito o la respuesta del día.
+- `public/js/habits.js`: hábitos y la regla de la racha.
+- `public/js/lib/habitPicker.js`: la grilla de hábitos con Guardar (Inicio y Progreso).
+- `public/js/views/progreso.js`: el mapa de intensidad de los últimos 12 meses.
 - `public/js/views/home.js`: saludo y textos del footer (día y noche).
-- `public/js/lib/umbral.js`: las 60 preguntas del día (una por fecha, siempre la misma ese día).
+- `public/js/lib/weather.js`: temperatura local al lado de la hora, de [Open-Meteo](https://open-meteo.com) (gratis, sin clave). Usa la ubicación del dispositivo (pide permiso una vez, redondeada a ~1 km y sin guardarla); si se rechaza, no se muestra.
 - `public/js/lib/sky.js`: el arte dithered del sol y la luna.
-- `public/css/styles.css`: tokens de color y tipografía (`:root`). JetBrains Mono es la mono compartida (navegación, números y fechas). Cada apartado tiene su propia fuente, definida en las variables `--f-*`: Inicio usa Georgia (Gelasio en Android), Registro Instrument Sans, Estadística Teko, Colección Bebas Neue, Música SF Pro o Inter, Notas Literata y Miscelánea Special Elite. El bloque "TIPOGRAFÍA Y DISEÑO POR APARTADO", al final del CSS, aplica cada fuente solo dentro de su sección.
+- `public/css/styles.css`: tokens de color y tipografía (`:root`). JetBrains Mono es la mono compartida (navegación, números y fechas). Cada apartado tiene su propia fuente, definida en las variables `--f-*`: Inicio usa Georgia (Gelasio en Android), Progreso Teko, Colección Bebas Neue, Música SF Pro o Inter, Notas Literata y Miscelánea Special Elite. El bloque "TIPOGRAFÍA Y DISEÑO POR APARTADO", al final del CSS, aplica cada fuente solo dentro de su sección.
 - `public/js/lib/activity.js`: textos del registro de actividad.
 - `public/sw.js`: service worker (la app abre sin conexión). Si agregás un archivo JS, sumalo a `SHELL`.
-- `public/js/lib/prefs.js` y `luz.js`: ajustes del dispositivo (háptica, movimiento) y la luz del día.
+- `public/js/lib/profile.js`: burbuja del perfil (arriba a la derecha) con la cuenta de Google y los ajustes.
+- `public/js/lib/prefs.js` y `luz.js`: ajustes del dispositivo (háptica, movimiento, tema) y la luz del día.
 
 ## Licencia
 

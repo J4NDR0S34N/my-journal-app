@@ -203,7 +203,10 @@ async function renderPortal(root) {
 }
 
 function renderGames(root, title, back) {
-  if (listScroll) setTimeout(() => scrollTo(0, listScroll), 80);
+  // Al volver de un juego, al mismo lugar (una sola vez).
+  const y = listScroll;
+  listScroll = 0;
+  if (y) setTimeout(() => scrollTo(0, y), 80);
   return mountShelf(root, {
     // Tocar un juego abre su página (#/coleccion/videojuegos/{id}).
     onOpen: (gameId) => {

@@ -1,14 +1,14 @@
-import { initStore, onUser, signIn, signOut, isLocal, list, clearCache } from "./store.js";
+import { initStore, onUser, signIn, signOut, isLocal, list, clearCache, onRemoteChange, usedCollections, resetUsed } from "./store.js";
 import { dayKey } from "./lib/dates.js";
-import { esc, openSheet } from "./lib/ui.js";
-import { hapticsOn, setHaptics, MOTIONS, motion, setMotion, applyMotion } from "./lib/prefs.js";
+import { esc, toast } from "./lib/ui.js";
+import { applyMotion, startTheme } from "./lib/prefs.js";
+import { mountProfile, setProfile } from "./lib/profile.js";
 import { isCollectionId } from "./lib/collections.js";
 import { startLuz } from "./lib/luz.js";
 
 const ROUTES = [
   ["inicio", "Inicio", () => import("./views/home.js")],
-  ["registro", "Hoy", () => import("./views/registro.js")],
-  ["estadistica", "Progreso", () => import("./views/stats.js")],
+  ["progreso", "Progreso", () => import("./views/progreso.js")],
   ["coleccion", "Colección", () => import("./views/coleccion.js")],
   ["misc", "Miscelánea", () => import("./views/misc.js")],
   ["notas", "Notas", () => import("./views/notas.js")],
@@ -26,83 +26,31 @@ let started = false;
 let lastDay = dayKey();
 
 // ---------- navegación ----------
+// El menú tiene solo las secciones; tema, ajustes y salir están en el panel
+// del perfil (burbuja abajo a la izquierda, ver lib/profile.js).
 function buildNav() {
-  nav.innerHTML = `
-    <ul>${ROUTES.map(([k, l], i) => `<li style="--i:${i}"><a href="#/${k}" data-route="${k}">${l}</a></li>`).join("")}</ul>
-    <div class="nav-foot mono">
-      <button class="nav-theme"></button>
-      <button class="nav-settings">ajustes</button>
-      ${isLocal ? `<span class="muted">modo local</span>` : `<button class="nav-out">salir</button>`}
-    </div>`;
-  nav.querySelector(".nav-out")?.addEventListener("click", async () => { await signOut(); location.hash = ""; });
-  nav.querySelector(".nav-theme").addEventListener("click", () =>
-    setTheme(document.documentElement.dataset.theme === "light" ? "dark" : "light"));
-  nav.querySelector(".nav-settings").addEventListener("click", () => { setNavOpen(false); openSettings(); });
+  nav.innerHTML = `<ul>${ROUTES.map(([k, l], i) => `<li style="--i:${i}"><a href="#/${k}" data-route="${k}">${l}</a></li>`).join("")}</ul>`;
   nav.addEventListener("click", (e) => { if (e.target.closest("a")) setNavOpen(false); });
-  paintThemeButton();
 }
 
-// ---------- ajustes (de este dispositivo) ----------
-function openSettings() {
-  const sh = openSheet(`
-    <div class="settings">
-      <h2>Ajustes</h2>
-      <div class="setting">
-        <div>
-          <p class="setting-name">Háptica</p>
-          <p class="mono muted setting-hint">Vibración breve al marcar un hábito.</p>
-        </div>
-        <button class="toggle" role="switch" data-set="haptics" aria-checked="${hapticsOn()}" aria-label="Háptica"></button>
-      </div>
-      <div class="setting setting-col">
-        <div>
-          <p class="setting-name">Movimiento</p>
-          <p class="mono muted setting-hint">Suave quita los desplazamientos; quieto deja todo estático, también la ilustración de puntos.</p>
-        </div>
-        <div class="chips" role="radiogroup" aria-label="Movimiento">
-          ${MOTIONS.map(([k, l]) => `<button class="chip mono" role="radio" data-set-motion="${k}" aria-checked="${motion() === k}">${l}</button>`).join("")}
-        </div>
-      </div>
-      <div class="detail-actions"><button class="btn btn-ghost" data-close>Listo</button></div>
-    </div>`);
-  sh.el.addEventListener("click", (e) => {
-    const m = e.target.closest("[data-set-motion]");
-    if (m) {
-      setMotion(m.dataset.setMotion);
-      sh.el.querySelectorAll("[data-set-motion]").forEach((b) => b.setAttribute("aria-checked", b === m));
-      return;
+async function logOut() {
+  await signOut();
+  location.hash = "";
+}
+
+// Abre la lista de cuentas de Google; si se cancela, sigue la sesión actual.
+async function switchAccount() {
+  try {
+    await signIn({ pickAccount: true });
+  } catch (e) {
+    if (e?.code !== "auth/popup-closed-by-user" && e?.code !== "auth/cancelled-popup-request") {
+      toast("No se pudo cambiar de cuenta");
+      console.error(e);
     }
-    const t = e.target.closest('[data-set="haptics"]');
-    if (!t) return;
-    const on = t.getAttribute("aria-checked") !== "true";
-    setHaptics(on);
-    t.setAttribute("aria-checked", on);
-  });
+  }
 }
 
-// ---------- tema claro / oscuro ----------
-const THEME_BG = { dark: "#0c0b0a", light: "#f3efe7" };
-let themeTimer;
-
-function paintThemeButton() {
-  const light = document.documentElement.dataset.theme === "light";
-  const b = nav.querySelector(".nav-theme");
-  b.textContent = light ? "modo oscuro" : "modo claro";
-  b.setAttribute("aria-label", light ? "Cambiar a modo oscuro" : "Cambiar a modo claro");
-  document.querySelector('meta[name="theme-color"]')?.setAttribute("content", THEME_BG[light ? "light" : "dark"]);
-}
-
-function setTheme(t) {
-  const root = document.documentElement;
-  root.classList.add("theming");
-  root.dataset.theme = t;
-  try { localStorage.setItem("mj:theme", t); } catch {}
-  paintThemeButton();
-  clearTimeout(themeTimer);
-  themeTimer = setTimeout(() => root.classList.remove("theming"), 500);
-}
-
-// Menú: el botón dice "Menú" (aria-expanded indica si está abierto). Abierto,
+// Menú: el botón muestra la sección actual (aria-expanded indica si está abierto). Abierto,
 // el foco queda atrapado entre el botón y el menú, y lo de atrás queda inerte.
 const isNavOpen = () => document.body.classList.contains("nav-open");
 function setNavOpen(v, { focus = false } = {}) {
@@ -118,7 +66,7 @@ document.addEventListener("keydown", (e) => {
   if (!isNavOpen()) return;
   if (e.key === "Escape") return setNavOpen(false, { focus: true });
   if (e.key !== "Tab") return;
-  const items = [navToggle, ...nav.querySelectorAll("a, button")];
+  const items = [navToggle, ...nav.querySelectorAll("a")];
   const i = items.indexOf(document.activeElement);
   const next = e.shiftKey ? (i <= 0 ? items.length - 1 : i - 1) : (i === items.length - 1 ? 0 : i + 1);
   e.preventDefault();
@@ -131,10 +79,11 @@ const currentRoute = () => ROUTES.find((r) => r[0] === hashParts()[0]) || ROUTES
 const routeParams = () => hashParts().slice(1).map((p) => decodeURIComponent(p));
 
 // Enlaces viejos que siguen funcionando:
-//   #/stats -> #/estadistica · #/musica -> #/coleccion/musica
+//   #/registro -> #/inicio (los hábitos se marcan en Inicio)
+//   #/stats y #/estadistica -> #/progreso · #/musica -> #/coleccion/musica
 //   #/coleccion/{idJuego} (antes de que Colección tuviera varias colecciones)
 //     -> #/coleccion/videojuegos/{idJuego}
-const MOVED = { stats: "estadistica", musica: "coleccion/musica" };
+const MOVED = { registro: "inicio", stats: "progreso", estadistica: "progreso", musica: "coleccion/musica" };
 function redirectFor() {
   const [key, sub, ...rest] = hashParts();
   if (MOVED[key]) return `#/${[MOVED[key], sub, ...rest].filter(Boolean).join("/")}`;
@@ -150,33 +99,45 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // Transición: la vista actual se desvanece, se carga la nueva por detrás y
 // entra con un fade + leve desplazamiento (ver .view-host en styles.css).
-async function route() {
+// quiet: redibujo por un cambio llegado de otro dispositivo. La sección nueva
+// se arma por detrás y reemplaza a la vieja sin transición ni salto de scroll.
+async function route({ quiet = false } = {}) {
   const to = redirectFor();
   if (to) return location.replace(to); // vuelve a entrar por hashchange
   const [key, label, load] = currentRoute();
   const params = routeParams();
   const seq = ++renderSeq;
-  setNavOpen(false);
+  if (!quiet) setNavOpen(false);
+  resetUsed();
   nav.querySelectorAll("a").forEach((a) =>
     a.dataset.route === key ? a.setAttribute("aria-current", "page") : a.removeAttribute("aria-current"));
+  // El botón del menú muestra la sección actual (el nombre accesible lo incluye).
   navCurrent.textContent = label;
+  navToggle.setAttribute("aria-label", `Menú: ${label}`);
   document.title = key === "inicio" ? "My Journal" : `${label} — My Journal`;
   const old = view.firstElementChild;
-  old?.classList.add("leaving");
+  if (!quiet) old?.classList.add("leaving");
   try {
-    const [mod] = await Promise.all([load(), old ? sleep(220) : null]);
+    const [mod] = await Promise.all([load(), old && !quiet ? sleep(220) : null]);
     if (seq !== renderSeq) return;
     cleanup?.();
     cleanup = null;
     document.body.dataset.route = styleKey(key, params);
-    scrollTo(0, 0);
+    const y = scrollY;
+    if (!quiet) scrollTo(0, 0);
     const host = document.createElement("div");
-    host.className = "view-host";
-    view.replaceChildren(host);
+    host.className = quiet ? "view-host in quiet staging" : "view-host";
+    if (quiet) view.append(host); else view.replaceChildren(host);
     const rendered = Promise.resolve(mod.render(host, ...params));
     // Esperamos a que la vista tenga contenido (máx. 350 ms) antes de mostrarla.
     await Promise.race([rendered.catch(() => {}), sleep(350)]);
-    if (seq === renderSeq) host.classList.add("in");
+    if (seq === renderSeq) {
+      if (quiet) {
+        [...view.children].forEach((el) => el !== host && el.remove());
+        host.classList.remove("staging");
+        scrollTo(0, y);
+      } else host.classList.add("in");
+    }
     prefetchViews();
     const c = await rendered;
     if (seq !== renderSeq) { typeof c === "function" && c(); return; }
@@ -187,6 +148,29 @@ async function route() {
     view.innerHTML = `<section class="page"><p class="mono muted">Algo falló al cargar esta sección.</p></section>`;
   }
 }
+
+// ---------- tiempo real ----------
+// Si otro dispositivo cambia algo que usa la sección abierta, se redibuja.
+// Espera si hay una hoja o el menú abiertos, si estás escribiendo o si quedó
+// texto sin guardar en algún campo (no se pierde un borrador); varios
+// cambios seguidos se juntan en un solo redibujo.
+let refreshPending = false, refreshTimer;
+const TEXT_FIELDS = "textarea, input:not([type=checkbox]):not([type=file]):not([type=radio])";
+const busy = () => isNavOpen() || document.querySelector(".sheet-wrap, .lightbox")
+  || (view.contains(document.activeElement) && document.activeElement.matches(`${TEXT_FIELDS}, select`))
+  || [...view.querySelectorAll(TEXT_FIELDS)].some((f) => f.value !== f.defaultValue)
+  || !!view.querySelector("[data-dirty]"); // ej. hábitos marcados sin guardar
+function refreshSoon() {
+  refreshPending = true;
+  clearTimeout(refreshTimer);
+  refreshTimer = setTimeout(function tryRefresh() {
+    if (!refreshPending || !started) return;
+    if (busy() || document.hidden) { refreshTimer = setTimeout(tryRefresh, 1000); return; }
+    refreshPending = false;
+    route({ quiet: true });
+  }, 150);
+}
+onRemoteChange((col) => { if (usedCollections().has(col)) refreshSoon(); });
 
 // Al volver a la app después de medianoche, refrescar la vista.
 document.addEventListener("visibilitychange", () => {
@@ -256,8 +240,10 @@ const rememberSignedIn = (v) => { if (isLocal) return; try { v ? localStorage.se
 
 async function boot() {
   startLuz();
+  startTheme();
   applyMotion();
   buildNav();
+  mountProfile({ isLocal, signOut: logOut, switchAccount, parent: document.querySelector(".topbar") });
   // El código de la sección se baja al mismo tiempo que Firebase.
   currentRoute()[2]().catch(() => {});
   let optimistic = isLocal || wasSignedIn();
@@ -274,6 +260,7 @@ async function boot() {
     if (!user) {
       optimistic = false;
       rememberSignedIn(false);
+      setProfile(null);
       renderSeq++; // cancela una sección que se estuviera dibujando
       cleanup?.();
       cleanup = null;
@@ -282,11 +269,12 @@ async function boot() {
       return showLogin();
     }
     currentUid = user.uid;
+    if (!isLocal) setProfile(user);
     rememberSignedIn(true);
     if (optimistic) optimistic = false; // ya se está mostrando
     else start();
     // Verifica permisos (y precarga la presencia) sin frenar la primera pantalla.
-    list("days").catch((e) => {
+    list("days", { track: false }).catch((e) => {
       if (e?.code === "permission-denied") showDenied();
       else console.error(e);
     });

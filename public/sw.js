@@ -9,11 +9,11 @@ const SDK = "https://www.gstatic.com/firebasejs/12.3.0";
 // Todo lo necesario para abrir cualquier sección sin red. Si falta algún
 // archivo nuevo acá, igual se guarda la primera vez que se usa.
 const SHELL = [
-  "./", "index.html", "css/styles.css", "manifest.webmanifest", "icon.svg",
+  "./", "index.html", "css/styles.css", "manifest.webmanifest", "favicon.ico?v=3", "favicon-32.png?v=3", "apple-touch-icon.png?v=2",
   "js/app.js", "js/config.js", "js/habits.js", "js/store.js",
-  ...["activity", "apis", "collections", "coverSheet", "dates", "deezer", "image", "luz",
-    "prefs", "presence", "shelf", "sky", "tracks", "ui", "umbral"].map((f) => `js/lib/${f}.js`),
-  ...["coleccion", "coleccionPropia", "home", "juego", "misc", "musica", "notas", "registro", "stats"]
+  ...["activity", "apis", "collections", "coverSheet", "dates", "deezer", "device", "habitPicker", "image", "luz", "weather",
+    "prefs", "profile", "shelf", "sky", "tracks", "ui"].map((f) => `js/lib/${f}.js`),
+  ...["coleccion", "coleccionPropia", "home", "juego", "misc", "musica", "notas", "progreso"]
     .map((f) => `js/views/${f}.js`),
   `${SDK}/firebase-app.js`, `${SDK}/firebase-firestore.js`, `${SDK}/firebase-auth.js`,
 ];

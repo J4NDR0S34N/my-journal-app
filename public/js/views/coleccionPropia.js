@@ -191,7 +191,6 @@ export async function render(root, col, back) {
             <button class="btn" data-act="move">Mover a ${other[1]}</button>
             <button class="btn btn-ghost" data-act="edit">Editar</button>
             <button class="btn btn-ghost" data-act="del">Borrar</button>
-            <button class="btn btn-ghost" data-close>Cerrar</button>
           </div>
         </div>
       </div>`);

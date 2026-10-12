@@ -1,5 +1,8 @@
 // Capa de datos: Firestore (si hay config) o localStorage (modo local).
 // Mantiene una caché en memoria por colección para navegar sin recargar.
+// En tiempo real: cada colección que se lee queda escuchando Firestore
+// (onSnapshot), así lo que cambiás en otro dispositivo llega solo; la app
+// se entera con onRemoteChange() y redibuja la sección si la usa.
 
 import { firebaseConfig, OWNER_UID } from "./config.js";
 
@@ -13,6 +16,35 @@ export const isLocal = !firebaseConfig.apiKey || devLocal;
 let fb = null; // { auth, db, fs, au }
 const cache = new Map(); // col -> Map(id -> data)
 const inflight = new Map(); // col -> Promise de list() en curso
+const live = new Map(); // col -> cancelar la escucha en vivo de la colección
+const liveSince = new Map(); // col -> { from, docs, ready, unsub } de since()
+
+// ---------- tiempo real ----------
+// Cambios propios recientes (col/id -> hora): su eco no cuenta como remoto.
+const mine = new Map();
+const markMine = (col, id) => mine.set(`${col}/${id}`, Date.now());
+const isMine = (col, id) => Date.now() - (mine.get(`${col}/${id}`) || 0) < 5000;
+const remoteListeners = new Set();
+const emitRemote = (col) => remoteListeners.forEach((fn) => fn(col));
+const hasRemote = (col, snap) => snap.docChanges().some((c) => !isMine(col, c.doc.id));
+
+// fn(col): una colección cambió desde otro dispositivo. Devuelve la baja.
+export function onRemoteChange(fn) {
+  remoteListeners.add(fn);
+  return () => remoteListeners.delete(fn);
+}
+
+// Colecciones leídas por la sección actual (la app las reinicia al navegar).
+const deps = new Set();
+export const usedCollections = () => deps;
+export const resetUsed = () => deps.clear();
+
+function stopLive() {
+  live.forEach((unsub) => unsub());
+  live.clear();
+  liveSince.forEach((q) => q.unsub());
+  liveSince.clear();
+}
 
 // Cada usuario tiene su propio diario: el dueño en la raíz, el resto en
 // users/{uid}/… (ver firestore.rules). `col` puede ser una ruta, ej. games/x/shots.
@@ -69,15 +101,17 @@ export function onUser(cb) {
   if (isLocal) { cb({ uid: "local" }); return; }
   fb.au.onAuthStateChanged(fb.auth, (user) => {
     const nextBase = user && user.uid !== OWNER_UID ? `users/${user.uid}/` : "";
-    if (nextBase !== base) { base = nextBase; cache.clear(); }
+    if (nextBase !== base) { base = nextBase; stopLive(); cache.clear(); }
     if (user) resolveAuthed();
     else if (authedDone) resetAuthed();
     cb(user);
   });
 }
 
-export async function signIn() {
+// pickAccount: Google muestra siempre la lista de cuentas ("Cambiar de cuenta").
+export async function signIn({ pickAccount = false } = {}) {
   const provider = new fb.au.GoogleAuthProvider();
+  if (pickAccount) provider.setCustomParameters({ prompt: "select_account" });
   try {
     await fb.au.signInWithPopup(fb.auth, provider);
   } catch (e) {
@@ -88,27 +122,43 @@ export async function signIn() {
 }
 
 export const signOut = () => (isLocal ? null : fb.au.signOut(fb.auth));
-export const clearCache = () => cache.clear();
+export const clearCache = () => { stopLive(); cache.clear(); };
 
 // ---------- CRUD ----------
-export async function list(col) {
+// track: false para lecturas que no son de la sección (no la redibujan).
+export async function list(col, { track = true } = {}) {
+  if (track) deps.add(col);
   if (cache.has(col)) return toArr(col);
   // Si dos partes piden la misma colección a la vez, se hace una sola lectura.
   if (!inflight.has(col)) {
     inflight.set(col, (async () => {
       await authed;
-      let obj;
-      if (isLocal) obj = lsRead(col);
-      else {
-        const snap = await fb.fs.getDocs(fb.fs.collection(fb.db, path(col)));
-        obj = {};
-        snap.forEach((d) => (obj[d.id] = d.data()));
-      }
-      cache.set(col, new Map(Object.entries(obj)));
+      if (isLocal) cache.set(col, new Map(Object.entries(lsRead(col))));
+      else await listen(col);
     })().finally(() => inflight.delete(col)));
   }
   await inflight.get(col);
   return toArr(col);
+}
+
+// Escucha la colección: la primera respuesta llena la caché (sale de la
+// caché local si hay, al instante); las siguientes la actualizan y, si el
+// cambio vino de otro dispositivo, avisan.
+function listen(col) {
+  return new Promise((resolve, reject) => {
+    let first = true;
+    const unsub = fb.fs.onSnapshot(fb.fs.collection(fb.db, path(col)), (snap) => {
+      cache.set(col, new Map(snap.docs.map((d) => [d.id, d.data()])));
+      if (first) { first = false; resolve(); }
+      else if (hasRemote(col, snap)) emitRemote(col);
+    }, (err) => {
+      live.delete(col);
+      cache.delete(col);
+      if (first) reject(err);
+      else console.warn("tiempo real", col, err);
+    });
+    live.set(col, unsub);
+  });
 }
 
 // Últimos n documentos ordenados por `field` (desc). Sin caché.
@@ -125,8 +175,10 @@ export async function recent(col, field, n) {
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
 }
 
-// Documentos con `field` >= `from`, ordenados por `field` (desc). Sin caché.
+// Documentos con `field` >= `from`, ordenados por `field` (desc). También en
+// vivo (una consulta por colección; si cambia `from`, se reemplaza).
 export async function since(col, field, from) {
+  deps.add(col);
   await authed;
   if (isLocal) {
     return Object.entries(lsRead(col))
@@ -134,9 +186,27 @@ export async function since(col, field, from) {
       .filter((d) => String(d[field] ?? "") >= from)
       .sort((a, b) => String(b[field] ?? "").localeCompare(String(a[field] ?? "")));
   }
-  const q = fb.fs.query(fb.fs.collection(fb.db, path(col)), fb.fs.where(field, ">=", from), fb.fs.orderBy(field, "desc"));
-  const snap = await fb.fs.getDocs(q);
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  let q = liveSince.get(col);
+  if (!q || q.from !== from) {
+    q?.unsub();
+    q = { from, docs: [], unsub: () => {} };
+    q.ready = new Promise((resolve, reject) => {
+      let first = true;
+      const query = fb.fs.query(fb.fs.collection(fb.db, path(col)), fb.fs.where(field, ">=", from), fb.fs.orderBy(field, "desc"));
+      q.unsub = fb.fs.onSnapshot(query, (snap) => {
+        q.docs = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+        if (first) { first = false; resolve(); }
+        else if (hasRemote(col, snap)) emitRemote(col);
+      }, (err) => {
+        if (liveSince.get(col) === q) liveSince.delete(col);
+        if (first) reject(err);
+        else console.warn("tiempo real", col, err);
+      });
+    });
+    liveSince.set(col, q);
+  }
+  await q.ready;
+  return q.docs.map((d) => ({ ...d }));
 }
 
 function toArr(col) {
@@ -163,6 +233,7 @@ export async function set(col, id, data, { merge = true } = {}) {
     all[id] = merge ? deepMerge(all[id] || {}, data) : data;
     lsWrite(col, all);
   } else {
+    markMine(col, id);
     await fb.fs.setDoc(fb.fs.doc(fb.db, path(col), id), data, { merge });
   }
   const c = cache.get(col);
@@ -179,6 +250,7 @@ export async function add(col, data) {
     lsWrite(col, all);
   } else {
     id = fb.fs.doc(fb.fs.collection(fb.db, path(col))).id;
+    markMine(col, id);
     await fb.fs.setDoc(fb.fs.doc(fb.db, path(col), id), data);
   }
   cache.get(col)?.set(id, data);
@@ -197,6 +269,7 @@ export async function createIfMissing(col, id, data) {
     saved = all[id];
   } else {
     const ref = fb.fs.doc(fb.db, path(col), id);
+    markMine(col, id);
     saved = await fb.fs.runTransaction(fb.db, async (tx) => {
       const s = await tx.get(ref);
       if (s.exists()) return s.data();
@@ -219,6 +292,7 @@ export async function remove(col, id) {
     delete all[id];
     lsWrite(col, all);
   } else {
+    markMine(col, id);
     await fb.fs.deleteDoc(fb.fs.doc(fb.db, path(col), id));
   }
   cache.get(col)?.delete(id);

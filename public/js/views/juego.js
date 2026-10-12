@@ -6,9 +6,10 @@ import { get, list, add, set, update, remove } from "../store.js";
 import { compressImage } from "../lib/image.js";
 import { rawgImg, steamBox, findSlug } from "../lib/apis.js";
 import { openCoverSheet } from "../lib/coverSheet.js";
-import { esc, toast, confirmTap, plural } from "../lib/ui.js";
+import { esc, toast, confirmTap, plural, CLOSE_ICON } from "../lib/ui.js";
 import { fmtShort, fmtStamp } from "../lib/dates.js";
 import { logActivity } from "../lib/activity.js";
+import { shortcut } from "../lib/device.js";
 
 const TABS = { owned: "Colección", wishlist: "Wishlist" };
 const LIST = "#/coleccion/videojuegos";
@@ -34,7 +35,7 @@ export async function deleteGame(id) {
 export async function render(root, id, colName = "Videojuegos") {
   fromList = sessionStorage.getItem("mj:fromList") === "1";
   sessionStorage.removeItem("mj:fromList");
-  const game = await get("games", id);
+  const game = (await list("games")).find((g) => g.id === id);
   if (!game) {
     root.innerHTML = `
       <section class="page game">
@@ -71,7 +72,7 @@ export async function render(root, id, colName = "Videojuegos") {
       </header>
       <section class="shots">
         <h2 class="shots-head">Capturas <span class="mono muted shots-count"></span></h2>
-        <p class="mono muted hint-paste">también podés pegar una imagen con ctrl/⌘+v</p>
+        ${shortcut("V") ? `<p class="mono muted hint-paste">también podés pegar una imagen con ${shortcut("V")}</p>` : ""}
         <div class="shots-grid"></div>
       </section>
     </section>`;
@@ -203,7 +204,7 @@ export async function render(root, id, colName = "Videojuegos") {
     const lb = document.createElement("div");
     lb.className = "lightbox viewer";
     lb.innerHTML = `
-      <button class="lb-close mono" aria-label="Cerrar">cerrar</button>
+      <button class="lb-close" aria-label="Cerrar">${CLOSE_ICON}</button>
       <div class="lb-stage"><img alt="" /></div>
       <div class="lb-bar mono">
         <button class="lb-prev" aria-label="Anterior">‹</button>

@@ -11,10 +11,14 @@
   <script>
     // Aplica tema, movimiento y luz del día antes de pintar (evita un
     // destello). Misma lógica que js/lib/prefs.js y js/lib/luz.js.
-    try { document.documentElement.dataset.theme = localStorage.getItem("mj:theme") || "dark"; } catch (e) {}
+    try {
+      var t = localStorage.getItem("mj:theme") || "dark", hr = new Date().getHours();
+      if (t === "auto" || t === "system" || t === "hour") t = hr >= 8 && hr < 20 ? "light" : "dark";
+      document.documentElement.dataset.theme = t === "light" ? "light" : "dark";
+    } catch (e) {}
     try {
       var m = localStorage.getItem("mj:motion");
-      document.documentElement.dataset.motion = /^(full|soft|still)$/.test(m || "") ? m
+      document.documentElement.dataset.motion = /^(full|still)$/.test(m || "") ? m
         : matchMedia("(prefers-reduced-motion: reduce)").matches ? "still" : "full";
     } catch (e) {}
     (function (h) { document.documentElement.dataset.luz = h >= 5 && h < 8 ? "alba" : h >= 8 && h < 17 ? "dia" : h >= 17 && h < 20 ? "tarde" : "noche"; })(new Date().getHours());
@@ -23,7 +27,11 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="My Journal" />
   <link rel="manifest" href="manifest.webmanifest" />
-  <link rel="icon" href="icon.svg" type="image/svg+xml" />
+  <!-- Ícono de la pestaña en .ico/.png: todos los navegadores los muestran (con el
+       SVG algunos mostraban "?"). ?v=3 obliga a bajar el logo nuevo. -->
+  <link rel="icon" href="favicon.ico?v=3" sizes="16x16 32x32 48x48" />
+  <link rel="icon" href="favicon-32.png?v=3" type="image/png" sizes="32x32" />
+  <link rel="apple-touch-icon" href="apple-touch-icon.png?v=2" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Gelasio:ital,wght@0,400;0,700;1,400&family=Inter:wght@400;500;600;700&family=Instrument+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Literata:ital,opsz,wght@0,7..72,400;0,7..72,500;0,7..72,600;1,7..72,400&family=Special+Elite&family=Teko:wght@400;500;600&display=swap" rel="stylesheet" />
@@ -38,8 +46,8 @@
   <link rel="modulepreload" href="js/lib/collections.js" />
   <link rel="modulepreload" href="js/lib/luz.js" />
   <link rel="modulepreload" href="js/lib/prefs.js" />
-  <link rel="modulepreload" href="js/lib/presence.js" />
-  <link rel="modulepreload" href="js/lib/umbral.js" />
+  <link rel="modulepreload" href="js/lib/profile.js" />
+  <link rel="modulepreload" href="js/lib/device.js" />
   <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/12.3.0/firebase-app.js" />
   <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/12.3.0/firebase-firestore.js" />
   <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/12.3.0/firebase-auth.js" />
@@ -47,11 +55,10 @@
 </head>
 <body data-route="inicio">
   <header class="topbar">
-    <button id="nav-toggle" class="nav-toggle" aria-controls="nav" aria-expanded="false">
+    <button id="nav-toggle" class="nav-toggle" aria-controls="nav" aria-expanded="false" aria-label="Menú">
       <span class="nav-icon" aria-hidden="true"><span></span><span></span><span></span></span>
-      <span class="nav-word">Menú</span>
+      <span class="nav-word" id="nav-current">Menú</span>
     </button>
-    <span class="nav-current" id="nav-current"></span>
   </header>
   <nav id="nav" class="nav" aria-label="Secciones"></nav>
   <main id="view"></main>

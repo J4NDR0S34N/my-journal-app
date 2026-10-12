@@ -53,11 +53,19 @@ function unlockScroll() {
   scrollTo(0, lockedY);
 }
 
-// Hoja inferior (móvil) / modal centrado (escritorio).
+// Ícono ✕ de cerrar (hojas y visor de capturas).
+export const CLOSE_ICON = `<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>`;
+
+// Hoja inferior (móvil) / modal centrado (escritorio), de vidrio esmerilado.
+// El ✕ queda fijo arriba a la derecha aunque el contenido se desplace.
 export function openSheet(html) {
   const wrap = document.createElement("div");
   wrap.className = "sheet-wrap";
-  wrap.innerHTML = `<div class="sheet" role="dialog" aria-modal="true">${html}</div>`;
+  wrap.innerHTML = `
+    <div class="sheet" role="dialog" aria-modal="true">
+      <button class="sheet-x" data-close aria-label="Cerrar">${CLOSE_ICON}</button>
+      <div class="sheet-body">${html}</div>
+    </div>`;
   document.body.append(wrap);
   lockScroll();
   requestAnimationFrame(() => wrap.classList.add("in"));
