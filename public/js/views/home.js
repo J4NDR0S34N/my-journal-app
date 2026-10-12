@@ -6,6 +6,7 @@ import { habitButtons, bindHabitButtons, sameHabits, saveDay } from "../lib/habi
 import { esc, plural, toast } from "../lib/ui.js";
 import { firstName, onProfile } from "../lib/profile.js";
 import { activitySince } from "../lib/activity.js";
+import { cachedTemp, currentTemp } from "../lib/weather.js";
 import { motion, onMotion } from "../lib/prefs.js";
 
 const SUN = `<svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true"><circle cx="8" cy="8" r="3" fill="currentColor"/><g stroke="currentColor" stroke-width="1.3" stroke-linecap="round"><path d="M8 1v2M8 13v2M1 8h2M13 8h2M3 3l1.4 1.4M11.6 11.6L13 13M3 13l1.4-1.4M11.6 4.4L13 3"/></g></svg>`;
@@ -52,7 +53,7 @@ export async function render(root) {
       <div class="hero">
         <canvas class="sky" aria-hidden="true"></canvas>
         <div class="home-main">
-          <p class="mono label home-date"></p>
+          <p class="mono label home-date"><span class="home-clock"></span><span class="home-temp" hidden></span></p>
           <h1 class="home-greet"></h1>
           <a class="streak mono" href="#/progreso" hidden></a>
         </div>
@@ -83,7 +84,7 @@ export async function render(root) {
     const now = new Date();
     day = isDaytime(now);
     sky.setDay(day);
-    $(".home-date").textContent = `${fmtLong(now)} · ${fmtTime(now)}`;
+    $(".home-clock").textContent = `${fmtLong(now)} · ${fmtTime(now)}`;
     paintNames(now);
     $(".foot-ico").innerHTML = day ? SUN : MOON;
     $(".foot-txt").textContent = `© ${now.getFullYear()} · ${day ? FOOT.day : FOOT.night}`;
@@ -93,8 +94,34 @@ export async function render(root) {
     const name = firstName();
     $(".home-greet").textContent = name ? `${greeting(now)}, ${name}` : greeting(now);
   }
+  // El reloj se actualiza justo al cambiar el minuto (y al volver a la app).
+  let clockTimer;
+  const scheduleTick = () => {
+    clockTimer = setTimeout(() => { tick(); scheduleTick(); }, 60_000 - (Date.now() % 60_000) + 30);
+  };
+  const onVisible = () => {
+    if (document.visibilityState !== "visible") return;
+    clearTimeout(clockTimer);
+    tick();
+    scheduleTick();
+    paintTemp();
+  };
+  document.addEventListener("visibilitychange", onVisible);
   tick();
-  const timer = setInterval(tick, 20_000);
+  scheduleTick();
+
+  // Temperatura local al lado de la hora: la guardada al instante, la nueva
+  // cuando llega (cada 30 min como mucho; ver lib/weather.js).
+  const showTemp = (t) => {
+    const el = $(".home-temp");
+    if (!el) return;
+    el.hidden = t == null;
+    el.textContent = t == null ? "" : ` · ${t}°`;
+  };
+  const paintTemp = () => currentTemp().then(showTemp);
+  showTemp(cachedTemp());
+  paintTemp();
+  const tempTimer = setInterval(paintTemp, 30 * 60_000);
   const offProfile = onProfile(() => paintNames());
 
   // ---------- hoy: hábitos (se guardan con Guardar) y racha ----------
@@ -149,5 +176,12 @@ export async function render(root) {
     $(".act-body").innerHTML = `<p class="act-empty muted">No se pudo cargar la actividad.</p>`;
   });
 
-  return () => { clearInterval(timer); offMotion(); offProfile(); sky.destroy(); };
+  return () => {
+    clearTimeout(clockTimer);
+    clearInterval(tempTimer);
+    document.removeEventListener("visibilitychange", onVisible);
+    offMotion();
+    offProfile();
+    sky.destroy();
+  };
 }

@@ -101,6 +101,7 @@ una hoja o el menú abiertos, o texto sin guardar en un campo.
 - `public/js/lib/habitPicker.js`: la grilla de hábitos con Guardar (Inicio y Progreso).
 - `public/js/views/progreso.js`: el mapa de intensidad de los últimos 12 meses.
 - `public/js/views/home.js`: saludo y textos del footer (día y noche).
+- `public/js/lib/weather.js`: temperatura local al lado de la hora, de [Open-Meteo](https://open-meteo.com) (gratis, sin clave). Usa la ubicación del dispositivo (pide permiso una vez, redondeada a ~1 km y sin guardarla); si se rechaza, no se muestra.
 - `public/js/lib/sky.js`: el arte dithered del sol y la luna.
 - `public/css/styles.css`: tokens de color y tipografía (`:root`). JetBrains Mono es la mono compartida (navegación, números y fechas). Cada apartado tiene su propia fuente, definida en las variables `--f-*`: Inicio usa Georgia (Gelasio en Android), Progreso Teko, Colección Bebas Neue, Música SF Pro o Inter, Notas Literata y Miscelánea Special Elite. El bloque "TIPOGRAFÍA Y DISEÑO POR APARTADO", al final del CSS, aplica cada fuente solo dentro de su sección.
 - `public/js/lib/activity.js`: textos del registro de actividad.

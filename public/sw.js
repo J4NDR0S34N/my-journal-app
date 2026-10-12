@@ -11,7 +11,7 @@ const SDK = "https://www.gstatic.com/firebasejs/12.3.0";
 const SHELL = [
   "./", "index.html", "css/styles.css", "manifest.webmanifest", "icon.svg",
   "js/app.js", "js/config.js", "js/habits.js", "js/store.js",
-  ...["activity", "apis", "collections", "coverSheet", "dates", "deezer", "device", "habitPicker", "image", "luz",
+  ...["activity", "apis", "collections", "coverSheet", "dates", "deezer", "device", "habitPicker", "image", "luz", "weather",
     "prefs", "profile", "shelf", "sky", "tracks", "ui"].map((f) => `js/lib/${f}.js`),
   ...["coleccion", "coleccionPropia", "home", "juego", "misc", "musica", "notas", "progreso"]
     .map((f) => `js/views/${f}.js`),
