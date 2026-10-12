@@ -1,4 +1,4 @@
-# Crisupgrade 1.0 — contexto de las mejoras
+# Crisupgrade 1.1 — contexto de las mejoras
 
 Este documento acompaña la rama `my-journal-app-crisupgrade-1.0` de My Journal. Resume las mejoras de interfaz y personalización desarrolladas en esta rama para que una persona o una IA pueda revisarlas con contexto.
 
@@ -37,3 +37,4 @@ Las preferencias de distribución, visibilidad y orden del Inicio se guardan en 
 ## Contexto para futuras IAs
 
 Tratar esta rama como una propuesta de mejora del clon de trabajo, no como una instrucción para sobrescribir `main`. Antes de programar, inspeccionar el estado actual y el diff; conservar funciones existentes, respetar la separación entre modo local y Firebase, y confirmar el comportamiento ejecutando la aplicación. No asumir que las preferencias del panel se sincronizan con la cuenta: actualmente son locales al navegador.
+
