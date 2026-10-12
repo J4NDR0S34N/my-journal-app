@@ -185,9 +185,9 @@ img { display: block; max-width: 100%; }
 .nav-toggle {
   display: inline-flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   min-height: 44px;
-  padding: 0 16px 0 14px;
+  padding: 0 16px 0 0; /* el logo ocupa el alto del botón, como la burbuja del perfil */
   color: var(--ink);
   background: var(--glass);
   -webkit-backdrop-filter: blur(8px);
@@ -196,19 +196,26 @@ img { display: block; max-width: 100%; }
 }
 /* el botón dice la sección actual ("Inicio", "Progreso"…) */
 .nav-word { font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; }
-.nav-icon { display: grid; gap: 5px; }
-/* ícono: tres líneas que se cruzan en una ✕ cuando el menú está desplegado */
-.nav-icon span {
-  display: block;
-  width: 18px;
-  height: 1.5px;
-  border-radius: 1px;
-  background: currentColor;
-  transition: transform 0.35s var(--ease), opacity 0.2s var(--ease);
+/* logo (espiral de puntos): brilla al acercar el cursor y se apaga con el
+   menú desplegado */
+.nav-logo {
+  flex: none;
+  width: 44px; /* mismo tamaño que la burbuja del perfil */
+  height: 44px;
+  color: var(--ink);
+  transition: filter 0.35s var(--ease), opacity 0.35s var(--ease),
+    transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1); /* leve rebote */
 }
-body.nav-open .nav-icon span:nth-child(1) { transform: translateY(6.5px) rotate(45deg); }
-body.nav-open .nav-icon span:nth-child(2) { opacity: 0; transform: scaleX(0.4); }
-body.nav-open .nav-icon span:nth-child(3) { transform: translateY(-6.5px) rotate(-45deg); }
+@media (hover: hover) and (pointer: fine) {
+  /* glow suave y el espiral gira un poco y crece apenas */
+  .nav-toggle:hover .nav-logo {
+    filter: drop-shadow(0 0 4px color-mix(in srgb, var(--ink) 35%, transparent));
+    transform: rotate(28deg) scale(1.08);
+  }
+}
+.nav-toggle:focus-visible .nav-logo { filter: drop-shadow(0 0 4px color-mix(in srgb, var(--ink) 35%, transparent)); }
+body.nav-open .nav-toggle .nav-logo,
+body.nav-open .nav-toggle:hover .nav-logo { opacity: 0.38; filter: none; transform: none; }
 /* menú desplegado: vidrio esmerilado, se ve la sección desenfocada detrás */
 .nav {
   position: fixed;
