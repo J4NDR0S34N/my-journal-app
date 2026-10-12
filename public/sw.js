@@ -9,7 +9,7 @@ const SDK = "https://www.gstatic.com/firebasejs/12.3.0";
 // Todo lo necesario para abrir cualquier sección sin red. Si falta algún
 // archivo nuevo acá, igual se guarda la primera vez que se usa.
 const SHELL = [
-  "./", "index.html", "css/styles.css", "manifest.webmanifest", "icon.svg",
+  "./", "index.html", "css/styles.css", "manifest.webmanifest", "icon.svg?v=2", "apple-touch-icon.png?v=2",
   "js/app.js", "js/config.js", "js/habits.js", "js/store.js",
   ...["activity", "apis", "collections", "coverSheet", "dates", "deezer", "device", "habitPicker", "image", "luz", "weather",
     "prefs", "profile", "shelf", "sky", "tracks", "ui"].map((f) => `js/lib/${f}.js`),
