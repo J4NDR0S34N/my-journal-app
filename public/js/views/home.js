@@ -141,6 +141,34 @@ export async function render(root) {
 
   const $ = (s) => root.querySelector(s);
   const prefs = homePrefs();
+  const widgets = $(".home-widgets");
+  let masonryFrame = 0;
+  const scheduleMasonry = () => {
+    cancelAnimationFrame(masonryFrame);
+    masonryFrame = requestAnimationFrame(() => {
+      const masonry = window.innerWidth > 760 && prefs.layout !== "stream";
+      widgets.classList.toggle("home-masonry", masonry);
+      const items = [...widgets.querySelectorAll(":scope > [data-home-widget]")];
+      if (!masonry) {
+        items.forEach((widget) => { widget.style.gridRowEnd = ""; });
+        return;
+      }
+      const style = getComputedStyle(widgets);
+      const row = parseFloat(style.gridAutoRows) || 4;
+      const gap = parseFloat(style.rowGap) || 8;
+      items.forEach((widget) => {
+        if (widget.hidden) { widget.style.gridRowEnd = ""; return; }
+        const widgetStyle = getComputedStyle(widget);
+        const borders = parseFloat(widgetStyle.borderTopWidth) + parseFloat(widgetStyle.borderBottomWidth);
+        const span = Math.max(1, Math.ceil((widget.scrollHeight + borders + gap) / (row + gap)));
+        const value = `span ${span}`;
+        if (widget.style.gridRowEnd !== value) widget.style.gridRowEnd = value;
+      });
+    });
+  };
+  const masonryObserver = new ResizeObserver(scheduleMasonry);
+  widgets.querySelectorAll(":scope > [data-home-widget]").forEach((widget) => masonryObserver.observe(widget));
+  window.addEventListener("resize", scheduleMasonry, { passive: true });
   const applyHomePrefs = () => {
     const home = $(".home");
     home.dataset.homeStyle = prefs.preset;
@@ -160,9 +188,9 @@ export async function render(root) {
       const widget = root.querySelector(`[data-home-widget="${id}"]`);
       if (widget) widget.parentNode.append(widget);
     });
+    scheduleMasonry();
   };
   applyHomePrefs();
-  const widgets = $(".home-widgets");
   let draggedWidget = "", pointerId = null, dragStart = null, originalOrder = [];
   const saveWidgetOrder = () => {
     prefs.order = [...widgets.querySelectorAll(":scope > [data-home-widget]")].map((widget) => widget.dataset.homeWidget);
@@ -505,6 +533,9 @@ export async function render(root) {
   });
 
   return () => {
+    cancelAnimationFrame(masonryFrame);
+    masonryObserver.disconnect();
+    window.removeEventListener("resize", scheduleMasonry);
     clearTimeout(clockTimer);
     clearInterval(tempTimer);
     clearInterval(progressRotationTimer);
