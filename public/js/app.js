@@ -3,12 +3,12 @@ import { dayKey } from "./lib/dates.js";
 import { esc, toast } from "./lib/ui.js";
 import { applyMotion, startTheme } from "./lib/prefs.js";
 import { mountProfile, setProfile } from "./lib/profile.js";
+import { syncScenes } from "./lib/scenes.js";
 import { isCollectionId } from "./lib/collections.js";
 import { startLuz } from "./lib/luz.js";
 
 const ROUTES = [
   ["inicio", "Inicio", () => import("./views/home.js")],
-  ["progreso", "Progreso", () => import("./views/progreso.js")],
   ["coleccion", "Colección", () => import("./views/coleccion.js")],
   ["misc", "Miscelánea", () => import("./views/misc.js")],
   ["notas", "Notas", () => import("./views/notas.js")],
@@ -79,11 +79,11 @@ const currentRoute = () => ROUTES.find((r) => r[0] === hashParts()[0]) || ROUTES
 const routeParams = () => hashParts().slice(1).map((p) => decodeURIComponent(p));
 
 // Enlaces viejos que siguen funcionando:
-//   #/registro -> #/inicio (los hábitos se marcan en Inicio)
-//   #/stats y #/estadistica -> #/progreso · #/musica -> #/coleccion/musica
+//   #/registro, #/progreso, #/stats y #/estadistica -> #/inicio (los hábitos
+//   y el progreso están en Inicio) · #/musica -> #/coleccion/musica
 //   #/coleccion/{idJuego} (antes de que Colección tuviera varias colecciones)
 //     -> #/coleccion/videojuegos/{idJuego}
-const MOVED = { registro: "inicio", stats: "progreso", estadistica: "progreso", musica: "coleccion/musica" };
+const MOVED = { registro: "inicio", progreso: "inicio", stats: "inicio", estadistica: "inicio", musica: "coleccion/musica" };
 function redirectFor() {
   const [key, sub, ...rest] = hashParts();
   if (MOVED[key]) return `#/${[MOVED[key], sub, ...rest].filter(Boolean).join("/")}`;
@@ -147,6 +147,23 @@ async function route({ quiet = false } = {}) {
     if (err?.code === "permission-denied") return showDenied();
     view.innerHTML = `<section class="page"><p class="mono muted">Algo falló al cargar esta sección.</p></section>`;
   }
+}
+
+// En el teléfono no hay "pasar el cursor": al tocar el logo del menú o la
+// burbuja del perfil se reproduce la misma microanimación (ver .tap en el CSS).
+function tapPulse(el) {
+  if (!el) return;
+  let t;
+  const end = () => { clearTimeout(t); el.classList.remove("tap"); };
+  el.addEventListener("pointerdown", (e) => {
+    if (e.pointerType === "mouse") return;
+    el.classList.remove("tap");
+    void el.offsetWidth; // reinicia la animación si se toca seguido
+    el.classList.add("tap");
+    clearTimeout(t);
+    t = setTimeout(end, 800); // por si animationend no llega (pestaña en segundo plano)
+  });
+  el.addEventListener("animationend", end);
 }
 
 // ---------- tiempo real ----------
@@ -244,6 +261,8 @@ async function boot() {
   applyMotion();
   buildNav();
   mountProfile({ isLocal, signOut: logOut, switchAccount, parent: document.querySelector(".topbar") });
+  tapPulse(navToggle);
+  tapPulse(document.querySelector(".profile-bubble"));
   // El código de la sección se baja al mismo tiempo que Firebase.
   currentRoute()[2]().catch(() => {});
   let optimistic = isLocal || wasSignedIn();
@@ -271,6 +290,7 @@ async function boot() {
     currentUid = user.uid;
     if (!isLocal) setProfile(user);
     rememberSignedIn(true);
+    syncScenes();
     if (optimistic) optimistic = false; // ya se está mostrando
     else start();
     // Verifica permisos (y precarga la presencia) sin frenar la primera pantalla.

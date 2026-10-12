@@ -11,9 +11,9 @@ const SDK = "https://www.gstatic.com/firebasejs/12.3.0";
 const SHELL = [
   "./", "index.html", "css/styles.css", "manifest.webmanifest", "favicon.ico?v=4", "favicon-32.png?v=4", "apple-touch-icon.png?v=4",
   "js/app.js", "js/config.js", "js/habits.js", "js/store.js",
-  ...["activity", "apis", "collections", "coverSheet", "dates", "deezer", "device", "habitPicker", "image", "luz", "weather",
-    "prefs", "profile", "shelf", "sky", "tracks", "ui"].map((f) => `js/lib/${f}.js`),
-  ...["coleccion", "coleccionPropia", "home", "juego", "misc", "musica", "notas", "progreso"]
+  ...["activity", "apis", "collections", "coverSheet", "dates", "deezer", "device", "habitPicker", "image", "luz", "progress", "weather",
+    "prefs", "profile", "scenes", "shelf", "sky", "tracks", "ui"].map((f) => `js/lib/${f}.js`),
+  ...["coleccion", "coleccionPropia", "home", "juego", "misc", "musica", "notas"]
     .map((f) => `js/views/${f}.js`),
   `${SDK}/firebase-app.js`, `${SDK}/firebase-firestore.js`, `${SDK}/firebase-auth.js`,
 ];

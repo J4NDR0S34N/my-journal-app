@@ -1,10 +1,12 @@
 // Burbuja del perfil (arriba a la derecha) y su panel: nombre, correo y foto
-// de la cuenta de Google, ajustes del dispositivo, cambiar de cuenta y
-// cerrar sesión. Nombre, correo y foto se recuerdan en este dispositivo para que el saludo
+// de la cuenta de Google, la ilustración del cielo (personalización),
+// ajustes del dispositivo, cambiar de cuenta y cerrar sesión. Nombre, correo y foto se recuerdan en este dispositivo para que el saludo
 // salga con nombre desde el primer cuadro; se borran al cerrar sesión.
 
 import { esc, openSheet } from "./ui.js";
-import { hapticsOn, setHaptics, MOTIONS, motion, setMotion, THEMES, themePref, setThemePref } from "./prefs.js";
+import { hapticsOn, setHaptics, MOTIONS, motion, setMotion, onMotion, THEMES, themePref, setThemePref } from "./prefs.js";
+import { DAY_SCENES, NIGHT_SCENES, scenes, setScene, onScenes } from "./scenes.js";
+import { createSky } from "./sky.js";
 
 const KEY = "mj:profile";
 let profile = (() => { try { return JSON.parse(localStorage.getItem(KEY)) || null; } catch { return null; } })();
@@ -68,6 +70,33 @@ const chips = (name, items, cur) => `
     ${items.map(([k, l]) => `<button class="chip mono" role="radio" data-${name === "Tema" ? "theme" : "motion"}="${k}" aria-checked="${k === cur}">${l}</button>`).join("")}
   </div>`;
 
+// Miniaturas animadas de cada ilustración (part: "day" | "night").
+const sceneCards = (part, items, cur) => `
+  <div class="scene-grid" role="radiogroup" aria-label="${part === "day" ? "Ilustración de día" : "Ilustración de noche"}">
+    ${items.map(([k, l]) => `
+      <button class="scene-card" role="radio" data-scene-part="${part}" data-scene="${k}" aria-checked="${k === cur}">
+        <canvas class="scene-thumb" aria-hidden="true"></canvas>
+        <span class="scene-name mono">${l}</span>
+      </button>`).join("")}
+  </div>`;
+
+function mountThumbs(sh) {
+  const skies = [...sh.el.querySelectorAll(".scene-card")].map((b) => {
+    const part = b.dataset.scenePart;
+    return createSky(b.querySelector("canvas"), {
+      day: part === "day",
+      motion: motion(),
+      scene: { day: "clouds", night: "comets", [part]: b.dataset.scene },
+      preview: true,
+    });
+  });
+  const mark = (sc) => sh.el.querySelectorAll(".scene-card").forEach((b) =>
+    b.setAttribute("aria-checked", sc[b.dataset.scenePart] === b.dataset.scene));
+  const offMotion = onMotion((m) => skies.forEach((s) => s.setMotion(m)));
+  const offScenes = onScenes(mark); // también si se cambia desde otro dispositivo
+  sh.onClose(() => { offMotion(); offScenes(); skies.forEach((s) => s.destroy()); });
+}
+
 function openPanel() {
   const name = opts.isLocal ? "Modo local" : fullName() || "Tu cuenta";
   const sh = openSheet(`
@@ -80,6 +109,17 @@ function openPanel() {
           ${opts.isLocal ? "" : `<button class="profile-switch mono" data-act="switch">Cambiar de cuenta</button>`}
         </div>
       </header>
+      <h3 class="label profile-section">Personalización</h3>
+      <div class="setting setting-col">
+        <div>
+          <p class="setting-name">Ilustración</p>
+          <p class="mono muted setting-hint">El cielo de Inicio. Se guarda en tu cuenta y cambia en todos tus dispositivos.</p>
+        </div>
+        <p class="label scene-part">Día</p>
+        ${sceneCards("day", DAY_SCENES, scenes().day)}
+        <p class="label scene-part">Noche</p>
+        ${sceneCards("night", NIGHT_SCENES, scenes().night)}
+      </div>
       <h3 class="label profile-section">Ajustes</h3>
       <div class="setting">
         <div>
@@ -105,6 +145,7 @@ function openPanel() {
       ${opts.isLocal ? "" : `<div class="detail-actions"><button class="btn btn-ghost" data-act="out">Cerrar sesión</button></div>`}
     </div>`);
   bindAvatarFallback(sh.el.querySelector(".avatar-lg"));
+  mountThumbs(sh);
   sh.el.addEventListener("click", async (e) => {
     const pick = (attr, set) => {
       const b = e.target.closest(`[data-${attr}]`);
@@ -114,6 +155,8 @@ function openPanel() {
       return true;
     };
     if (pick("theme", setThemePref) || pick("motion", setMotion)) return;
+    const card = e.target.closest(".scene-card");
+    if (card) return setScene(card.dataset.scenePart, card.dataset.scene); // onScenes marca la elegida
     const t = e.target.closest('[data-set="haptics"]');
     if (t) {
       const on = t.getAttribute("aria-checked") !== "true";

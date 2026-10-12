@@ -1,13 +1,15 @@
 import { createSky } from "../lib/sky.js";
 import { dayKey, isDaytime, fmtLong, fmtTime } from "../lib/dates.js";
 import { list } from "../store.js";
-import { HABITS, countDone, computeStreak } from "../habits.js";
+import { HABITS, countDone } from "../habits.js";
 import { habitButtons, bindHabitButtons, sameHabits, saveDay } from "../lib/habitPicker.js";
-import { esc, plural, toast } from "../lib/ui.js";
+import { mountProgress } from "../lib/progress.js";
+import { esc, toast } from "../lib/ui.js";
 import { firstName, onProfile } from "../lib/profile.js";
 import { activitySince } from "../lib/activity.js";
 import { cachedTemp, currentTemp } from "../lib/weather.js";
 import { motion, onMotion } from "../lib/prefs.js";
+import { scenes, onScenes } from "../lib/scenes.js";
 
 const SUN = `<svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true"><circle cx="8" cy="8" r="3" fill="currentColor"/><g stroke="currentColor" stroke-width="1.3" stroke-linecap="round"><path d="M8 1v2M8 13v2M1 8h2M13 8h2M3 3l1.4 1.4M11.6 11.6L13 13M3 13l1.4-1.4M11.6 4.4L13 3"/></g></svg>`;
 const MOON = `<svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true"><path d="M10.5 1.8A6.3 6.3 0 1 0 14.2 11 5.2 5.2 0 0 1 10.5 1.8z" fill="currentColor"/></svg>`;
@@ -55,11 +57,11 @@ export async function render(root) {
         <div class="home-main">
           <p class="mono label home-date"><span class="home-clock"></span><span class="home-temp" hidden></span></p>
           <h1 class="home-greet"></h1>
-          <a class="streak mono" href="#/progreso" hidden></a>
         </div>
       </div>
-      <section class="today" aria-labelledby="today-h">
-        <header class="today-head">
+      <div class="today-row">
+      <section class="today widget" aria-labelledby="today-h">
+        <header class="today-head widget-head">
           <h2 id="today-h" class="act-head">Hoy</h2>
           <span class="today-count mono muted" aria-live="polite"></span>
         </header>
@@ -68,17 +70,22 @@ export async function render(root) {
           <button class="btn today-save" disabled>Guardar</button>
         </div>
       </section>
+      <div class="today-progress"></div>
+      </div>
       <section class="activity" aria-labelledby="act-h">
-        <h2 id="act-h" class="act-head">Actividad reciente</h2>
-        <div class="act-body"><p class="act-empty muted">cargando…</p></div>
+        <div class="widget">
+          <header class="widget-head"><h2 id="act-h" class="act-head">Actividad reciente</h2></header>
+          <div class="act-body"><p class="act-empty muted">cargando…</p></div>
+        </div>
       </section>
       <footer class="home-foot mono"><span class="foot-ico"></span><span class="foot-txt"></span></footer>
     </section>`;
 
   const $ = (s) => root.querySelector(s);
   let day = isDaytime();
-  const sky = createSky($(".sky"), { day, motion: motion() });
+  const sky = createSky($(".sky"), { day, motion: motion(), scene: scenes() });
   const offMotion = onMotion((m) => sky.setMotion(m));
+  const offScenes = onScenes((sc) => sky.setScene(sc));
 
   function tick() {
     const now = new Date();
@@ -150,8 +157,13 @@ export async function render(root) {
     }
   });
 
+  // Cuadro de Progreso al lado de "Hoy" (debajo en el celular).
+  let progress = null;
+
   function paintDays(days) {
     if (!root.isConnected) return;
+    if (progress) progress.update(days);
+    else progress = mountProgress($(".today-progress"), days, { onSaved: () => list("days").then(paintDays) });
     saved = { ...(days.find((d) => d.id === today)?.h || {}) };
     if (!touched) {
       Object.keys(draft).forEach((k) => delete draft[k]);
@@ -159,9 +171,6 @@ export async function render(root) {
       $(".today-grid .habits").outerHTML = habitButtons(draft);
     }
     paintToday();
-    const s = $(".streak");
-    s.textContent = `🔥 ${plural(computeStreak(days, today, dayKey), "día", "días")}`;
-    s.hidden = false;
   }
   list("days").then(paintDays).catch(() => {});
 
@@ -179,8 +188,10 @@ export async function render(root) {
   return () => {
     clearTimeout(clockTimer);
     clearInterval(tempTimer);
+    progress?.destroy();
     document.removeEventListener("visibilitychange", onVisible);
     offMotion();
+    offScenes();
     offProfile();
     sky.destroy();
   };

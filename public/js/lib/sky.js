@@ -2,9 +2,11 @@
 // del todo. Cada cuadro se dibuja encima del anterior (que se va apagando de a
 // poco), así lo que se mueve deja estelas con bandas. Después se pasa a
 // píxeles cuadrados con dithering Bayer 8×8, en un solo color (la tinta del tema).
-//   Día: sol que deriva lento, rayos que giran y nubes a la deriva.
-//   Noche: luna con cráteres, estrellas que titilan y cometas (su cola es la
-//   propia estela que deja el lienzo).
+//   Día: sol que deriva lento y rayos que giran; con o sin nubes a la deriva.
+//   Noche: estrellas que titilan y, según la ilustración elegida (scenes.js):
+//   luna con cráteres y cometas (su cola es la propia estela del lienzo), la
+//   luna sola, Júpiter con sus bandas y las cuatro lunas galileanas, o Marte
+//   con su casquete polar, Fobos y Deimos. Los planetas giran despacio.
 
 const BAYER = [
   [0, 32, 8, 40, 2, 34, 10, 42],
@@ -51,14 +53,36 @@ const FRAME_MS = 60;
 // Cuánto queda de la estela en cada cuadro de 60 ms: la mitad se va en ≈3 s.
 const KEEP = 0.986;
 
-export function createSky(canvas, { day, motion = "full" }) {
+// Lunas de cada planeta: t ubica la órbita entre la más cercana y la más
+// lejana (0..1), w es la velocidad angular (rad/s), ph la fase y size el radio.
+const MOONS = {
+  jupiter: [
+    { t: 0, w: 0.8, ph: 0, size: 1.7 }, // Ío
+    { t: 0.3, w: 0.45, ph: 2.1, size: 1.5 }, // Europa
+    { t: 0.62, w: 0.26, ph: 4, size: 2.1 }, // Ganimedes
+    { t: 1, w: 0.13, ph: 5.3, size: 1.9 }, // Calisto
+  ],
+  mars: [
+    { t: 0, w: 0.9, ph: 1, size: 1.5 }, // Fobos
+    { t: 1, w: 0.28, ph: 4.2, size: 1.2 }, // Deimos
+  ],
+};
+const PLANET = {
+  jupiter: { size: 0.82, spin: 0.08, far: 2.9 },
+  mars: { size: 0.78, spin: 0.035, far: 2.6 },
+};
+const TAU = Math.PI * 2;
+
+// scene: { day: "clouds" | "clear", night: "comets" | "clear" | "jupiter" | "mars" }
+// preview: miniatura del panel del perfil (centrada, sin fundido, más fina).
+export function createSky(canvas, { day, motion = "full", scene = { day: "clouds", night: "comets" }, preview = false }) {
   const ctx = canvas.getContext("2d");
   const low = document.createElement("canvas");
   const lctx = low.getContext("2d");
   let cols, rows, cell, dpr, img, pattern, acc, mask, raf = 0, last = 0, running = true;
   // reloj propio: avanza solo mientras se anima (sin saltos al reanudar)
   let clock = 0, prev = null, visible = !document.hidden, onScreen = true;
-  let stars = [], clouds = [], comets = [], nextComet = 2500;
+  let stars = [], clouds = [], comets = [], nextComet = preview ? 900 : 2500;
   let ink = [236, 230, 220];
   const readInk = () => {
     const m = getComputedStyle(canvas).color.match(/\d+(\.\d+)?/g);
@@ -68,6 +92,7 @@ export function createSky(canvas, { day, motion = "full" }) {
   // ---------- escena ----------
   // Proporciones según la forma del héroe (vertical en el celular).
   const layout = () => {
+    if (preview) return { cx: cols * 0.5, cy: rows * 0.5, R: Math.min(cols, rows) * 0.26 };
     const wide = cols / rows > 1;
     const minDim = Math.min(cols, rows);
     return {
@@ -81,7 +106,7 @@ export function createSky(canvas, { day, motion = "full" }) {
     const r = rng(7);
     stars = Array.from({ length: Math.round(cols * rows * 0.004) }, () => ({
       x: Math.floor(r() * cols),
-      y: Math.floor(r() * rows * 0.66),
+      y: Math.floor(r() * rows * (preview ? 1 : 0.66)),
       b: 0.45 + r() * 0.55,
       sp: 0.6 + r() * 2.2,
       ph: r() * 6.28,
@@ -143,7 +168,7 @@ export function createSky(canvas, { day, motion = "full" }) {
       // sol: brillante en el centro, borde oscuro (la banda negra del estilo)
       disc(cx, cy, r, (nx, ny, d) => (d > 0.9 ? 0.06 : 1.02 - 0.3 * d * d - 0.12 * ny), false);
       // nubes: claras arriba, más oscuras abajo, con contorno oscuro
-      for (const c of clouds) {
+      if (scene.day === "clouds") for (const c of clouds) {
         const span = cols * 1.6;
         const x = ((c.x + c.v * s) % span + span) % span - cols * 0.3;
         for (const p of c.parts) {
@@ -151,19 +176,27 @@ export function createSky(canvas, { day, motion = "full" }) {
         }
       }
     } else {
-      disc(cx, cy, R * 1.9, (nx, ny, d) => (d < 0.53 ? 0 : 0.26 * (1 - (d - 0.53) / 0.47) ** 2), true);
-      // luna: esfera iluminada desde arriba a la izquierda, con cráteres
-      disc(cx, cy, r, (nx, ny, d) => {
-        if (d > 0.92) return 0.05;
-        const nz = Math.sqrt(Math.max(0, 1 - d * d));
-        let lit = Math.max(0, nx * -0.6 + ny * -0.32 + nz * 0.74);
-        const cr = vnoise((cx + nx * r) / 6 + 3, (cy + ny * r) / 6 + 9);
-        if (cr > 0.6) lit *= 0.68;
-        return 0.06 + lit * 0.98;
-      }, false);
+      const planet = PLANET[scene.night];
+      const pr = planet ? r * planet.size : r;
+      // halo (más corto y tenue en los planetas, para que se lean sus bandas)
+      if (planet) disc(cx, cy, pr * 1.45, (nx, ny, d) => (d < 0.7 ? 0 : 0.16 * (1 - (d - 0.7) / 0.3) ** 2), true);
+      else disc(cx, cy, r * 1.9, (nx, ny, d) => (d < 0.53 ? 0 : 0.26 * (1 - (d - 0.53) / 0.47) ** 2), true);
+      if (scene.night === "jupiter") disc(cx, cy, pr, jupiter(s * planet.spin), false);
+      else if (scene.night === "mars") disc(cx, cy, pr, mars(s * planet.spin), false);
+      else {
+        // luna: esfera iluminada desde arriba a la izquierda, con cráteres
+        disc(cx, cy, r, (nx, ny, d) => {
+          if (d > 0.92) return 0.05;
+          const nz = Math.sqrt(Math.max(0, 1 - d * d));
+          let lit = Math.max(0, nx * -0.6 + ny * -0.32 + nz * 0.74);
+          const cr = vnoise((cx + nx * r) / 6 + 3, (cy + ny * r) / 6 + 9);
+          if (cr > 0.6) lit *= 0.68;
+          return 0.06 + lit * 0.98;
+        }, false);
+      }
       // estrellas que titilan (las grandes, en cruz)
       for (const st of stars) {
-        if (Math.hypot(st.x - cx, st.y - cy) < r * 1.5) continue;
+        if (Math.hypot(st.x - cx, st.y - cy) < pr * 1.5) continue;
         const v = st.b * (0.45 + 0.55 * Math.sin(s * st.sp + st.ph) ** 2);
         const put = (x, y, k) => {
           if (x < 0 || y < 0 || x >= cols || y >= rows) return;
@@ -173,34 +206,93 @@ export function createSky(canvas, { day, motion = "full" }) {
         put(st.x, st.y, 1);
         if (st.big) { put(st.x - 1, st.y, 0.55); put(st.x + 1, st.y, 0.55); put(st.x, st.y - 1, 0.55); put(st.x, st.y + 1, 0.55); }
       }
-      // cometas: cabeza brillante; la cola es la estela que deja el lienzo
-      nextComet -= dt;
-      if (nextComet <= 0 && comets.length < 2) {
-        const ang = Math.PI * (0.78 + Math.random() * 0.12); // hacia abajo a la izquierda
-        const sp = (cols / 12) * (0.8 + Math.random() * 0.6); // celdas por segundo
-        comets.push({ x: cols * (0.35 + Math.random() * 0.75), y: rows * Math.random() * 0.22, vx: Math.cos(ang) * sp, vy: Math.abs(Math.sin(ang)) * sp * 0.55, life: 2.6 + Math.random() * 1.6 });
-        nextComet = 5000 + Math.random() * 7000;
-      }
-      for (const c of comets) {
-        const sec = dt / 1000, steps = 4;
-        for (let k = 0; k < steps; k++) {
-          c.x += (c.vx * sec) / steps;
-          c.y += (c.vy * sec) / steps;
-          disc(c.x, c.y, 2.6, (nx, ny, d) => 1.1 - d * 0.5, true);
-        }
-        c.life -= sec;
-      }
-      comets = comets.filter((c) => c.life > 0 && c.x > -10 && c.y < rows * 0.7);
+      if (planet) moons(MOONS[scene.night], cx, cy, pr, planet.far, s);
+      if (scene.night === "comets") cometsStep(dt);
     }
+  }
+
+  // ---------- planetas ----------
+  // Coordenadas sobre la esfera: lat (−1 arriba … 1 abajo) y longitud que
+  // avanza con el giro (sin costura: solo se ve la cara de adelante).
+  const sphere = (nx, ny, d, spin) => {
+    const nz = Math.sqrt(Math.max(0, 1 - d * d));
+    return { nz, lon: Math.atan2(nx, nz) + spin, light: 0.42 + 0.62 * Math.max(0, nx * -0.55 + ny * -0.3 + nz * 0.78) };
+  };
+
+  // Júpiter: zonas claras y cinturones oscuros con turbulencia, y la Gran
+  // Mancha Roja (óvalo oscuro con borde claro) que pasa con el giro.
+  const jupiter = (spin) => (nx, ny, d) => {
+    if (d > 0.94) return 0.05;
+    const { nz, lon, light } = sphere(nx, ny, d, spin);
+    const turb = vnoise(lon * 3 + 40, ny * 9 + 7);
+    const band = Math.sin(ny * 10 + 0.6 + turb * 1.4);
+    let alb = band > 0.15 ? 0.98 : band > -0.35 ? 0.62 : 0.3;
+    alb += (vnoise(lon * 6 + 90, ny * 22) - 0.5) * 0.18;
+    const dl = (((lon - 1.2) % TAU) + TAU * 1.5) % TAU - Math.PI;
+    const e = (dl / 0.42) ** 2 + ((ny - 0.38) / 0.12) ** 2;
+    if (e < 0.5) alb = 0.25;
+    else if (e < 1) alb = 1;
+    return 0.04 + alb * light * (0.7 + 0.3 * nz);
+  };
+
+  // Marte: llanuras claras con mares oscuros y casquetes polares.
+  const mars = (spin) => (nx, ny, d) => {
+    if (d > 0.94) return 0.05;
+    const { nz, lon, light } = sphere(nx, ny, d, spin);
+    const n = vnoise(lon * 2.2 + 20, ny * 3 + 5) * 0.65 + vnoise(lon * 5.5 + 3, ny * 8 + 60) * 0.35;
+    let alb = 0.85 - 0.58 * Math.min(1, Math.max(0, (n - 0.45) / 0.12));
+    if (ny < -0.66 + 0.07 * Math.sin(lon * 3)) alb = 1.15; // casquete norte
+    else if (ny > 0.84) alb = 1;
+    return 0.04 + alb * light * (0.7 + 0.3 * nz);
+  };
+
+  // Lunas en órbitas casi de canto: pasan por delante y por detrás del
+  // planeta (detrás, quedan tapadas) y dejan estela.
+  function moons(list, cx, cy, pr, far, s) {
+    const near = pr * 1.35;
+    const room = Math.min(cx, cols - cx) - 3;
+    const max = Math.max(near + pr * 0.6, Math.min(pr * far, room));
+    const tilt = -0.15;
+    for (const m of list) {
+      const a = near + (max - near) * m.t;
+      const th = m.ph + s * m.w;
+      const px = a * Math.cos(th), py = a * Math.sin(th) * 0.16;
+      const x = cx + px * Math.cos(tilt) - py * Math.sin(tilt);
+      const y = cy + px * Math.sin(tilt) + py * Math.cos(tilt);
+      if (Math.sin(th) < 0 && Math.hypot(x - cx, y - cy) < pr + m.size) continue;
+      disc(x, y, m.size, (nx, ny, d) => 1.05 - d * 0.4, true);
+    }
+  }
+
+  // cometas: cabeza brillante; la cola es la estela que deja el lienzo
+  function cometsStep(dt) {
+    nextComet -= dt;
+    if (nextComet <= 0 && comets.length < 2) {
+      const ang = Math.PI * (0.78 + Math.random() * 0.12); // hacia abajo a la izquierda
+      const sp = (cols / 12) * (0.8 + Math.random() * 0.6); // celdas por segundo
+      comets.push({ x: cols * (0.35 + Math.random() * 0.75), y: rows * Math.random() * 0.22, vx: Math.cos(ang) * sp, vy: Math.abs(Math.sin(ang)) * sp * 0.55, life: 2.6 + Math.random() * 1.6 });
+      nextComet = preview ? 1500 + Math.random() * 2500 : 5000 + Math.random() * 7000;
+    }
+    for (const c of comets) {
+      const sec = dt / 1000, steps = 4;
+      for (let k = 0; k < steps; k++) {
+        c.x += (c.vx * sec) / steps;
+        c.y += (c.vy * sec) / steps;
+        disc(c.x, c.y, 2.6, (nx, ny, d) => 1.1 - d * 0.5, true);
+      }
+      c.life -= sec;
+    }
+    comets = comets.filter((c) => c.life > 0 && c.x > -10 && c.y < rows * 0.7);
   }
 
   // ---------- pantalla ----------
   function resize() {
-    const rc = canvas.getBoundingClientRect();
+    // tamaño de diseño (sin transformaciones: la hoja entra con escala)
+    const rc = { width: canvas.clientWidth, height: canvas.clientHeight };
     if (rc.width < 2 || rc.height < 2) return;
     readInk();
     dpr = Math.min(devicePixelRatio || 1, 2);
-    cell = rc.width < 700 ? 3 : 4; // más detalle que antes (4–5)
+    cell = preview ? 2 : rc.width < 700 ? 3 : 4; // más detalle que antes (4–5)
     cols = Math.ceil(rc.width / cell);
     rows = Math.ceil(rc.height / cell);
     canvas.width = Math.round(rc.width * dpr);
@@ -215,7 +307,7 @@ export function createSky(canvas, { day, motion = "full" }) {
     const wide = cols / rows > 1;
     for (let y = 0; y < rows; y++) {
       const vf = Math.min(1, Math.max(0, (0.72 - y / rows) / 0.22));
-      for (let x = 0; x < cols; x++) mask[y * cols + x] = vf * (wide ? Math.min(1, x / (cols * 0.18)) : 1);
+      for (let x = 0; x < cols; x++) mask[y * cols + x] = preview ? 1 : vf * (wide ? Math.min(1, x / (cols * 0.18)) : 1);
     }
     // píxeles cuadrados con una separación mínima entre sí
     const pc = document.createElement("canvas");
@@ -283,12 +375,22 @@ export function createSky(canvas, { day, motion = "full" }) {
   resize();
   kick();
 
+  // Cambio de escena: lo anterior se apaga y la nueva ya aparece con estela.
+  function redo() {
+    comets = [];
+    if (acc) { for (let k = 0; k < 40; k++) step(clock, FRAME_MS); draw(); }
+  }
+
   return {
     setDay(v) {
       if (v === day) return;
       day = v;
-      comets = [];
-      if (acc) { for (let k = 0; k < 40; k++) step(clock, FRAME_MS); draw(); }
+      redo();
+    },
+    setScene(v) {
+      if (v.day === scene.day && v.night === scene.night) return;
+      scene = { ...v };
+      redo();
     },
     setMotion(m) { motion = m; kick(); },
     destroy() {

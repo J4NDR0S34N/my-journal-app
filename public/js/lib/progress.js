@@ -1,4 +1,4 @@
-// Progreso: la actividad por intensidad (cuanto más intenso, más hábitos ese
+// Cuadro de Progreso (en Inicio, al lado de "Hoy"): la actividad por intensidad (cuanto más intenso, más hábitos ese
 // día) en tres vistas, con flechas para ir hacia atrás:
 //   Semana: 7 días grandes con los emojis de lo que hiciste.
 //   Mes: calendario con el número de cada día.
@@ -7,10 +7,9 @@
 // Al pasar el cursor se ve lo registrado; al tocar un día se abre para corregirlo.
 
 import { HABITS, countDone, computeStreak } from "../habits.js";
-import { dayKey, fmtLong, MONTHS, WEEKDAYS } from "../lib/dates.js";
-import { list } from "../store.js";
-import { esc, plural, openSheet, toast } from "../lib/ui.js";
-import { habitButtons, bindHabitButtons, sameHabits, saveDay } from "../lib/habitPicker.js";
+import { dayKey, fmtLong, MONTHS, WEEKDAYS } from "./dates.js";
+import { esc, plural, openSheet, toast } from "./ui.js";
+import { habitButtons, bindHabitButtons, sameHabits, saveDay } from "./habitPicker.js";
 
 // 0 sin registro · 1: 1–2 hábitos · 2: 3–4 · 3: 5–6 · 4: 7 o más
 const level = (n) => (n === 0 ? 0 : n <= 2 ? 1 : n <= 4 ? 2 : n <= 6 ? 3 : 4);
@@ -27,20 +26,22 @@ const mondayOf = (d) => {
   return m;
 };
 
-export async function render(root) {
-  const days = await list("days");
-  const byId = new Map(days.map((d) => [d.id, d.h || {}]));
+// root: dónde se dibuja. days: los documentos de days. onSaved(): avisa
+// cuando se corrigió un día desde el cuadro (Inicio refresca lo de hoy).
+// Devuelve { update(days), destroy() }.
+export function mountProgress(root, days, { onSaved } = {}) {
+  let byId = new Map(days.map((d) => [d.id, d.h || {}]));
   const today = dayKey();
   let view = "year";
   try { view = VIEWS.some(([k]) => k === localStorage.getItem(VIEW_KEY)) ? localStorage.getItem(VIEW_KEY) : "year"; } catch {}
   let back = 0; // cuántos períodos hacia atrás (0 = el actual)
 
   root.innerHTML = `
-    <section class="page stats">
-      <div class="hud">
-        <header class="hud-head">
-          <h1>Progreso</h1>
-          <span class="streak"></span>
+    <section class="stats progress-box" aria-labelledby="prog-h">
+      <div class="hud widget">
+        <header class="hud-head widget-head">
+          <h2 id="prog-h">Progreso</h2>
+          <span class="streak mono"></span>
         </header>
         <div class="prog-bar">
           <div class="prog-views" role="tablist" aria-label="Vista">
@@ -223,6 +224,7 @@ export async function render(root) {
         paint();
         sh.close();
         toast("Guardado");
+        onSaved?.(key);
       } catch (err) {
         save.disabled = false;
         toast("No se pudo guardar");
@@ -232,5 +234,8 @@ export async function render(root) {
   }
 
   paint();
-  return () => { removeEventListener("scroll", hideTip); tip.remove(); };
+  return {
+    update(next) { byId = new Map(next.map((d) => [d.id, d.h || {}])); paint(); },
+    destroy() { removeEventListener("scroll", hideTip); tip.remove(); },
+  };
 }

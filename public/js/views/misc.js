@@ -16,13 +16,6 @@ const normUrl = (u) => {
 };
 const host = (u) => { try { return new URL(u).hostname.replace(/^www\./, ""); } catch { return u; } };
 
-// Inclinación estable por ítem (-2.5° a 2.5°) para el look de corcho.
-const tilt = (id) => {
-  let h = 0;
-  for (const c of id) h = (h * 31 + c.charCodeAt(0)) >>> 0;
-  return ((h % 51) / 10 - 2.5).toFixed(1);
-};
-
 export async function render(root) {
   let items = [];
 
@@ -51,13 +44,11 @@ export async function render(root) {
       return;
     }
     grid.innerHTML = arr.map((x) => x.kind === "image" ? `
-      <figure class="m-item m-img" data-id="${x.id}" style="--rot:${tilt(x.id)}deg">
-        <span class="tape" aria-hidden="true"></span>
+      <figure class="m-item m-img" data-id="${x.id}">
         <img src="${esc(x.imageUrl)}" alt="${esc(x.title || "")}" loading="lazy" style="aspect-ratio:${x.ratio || "auto"}" />
         <button class="m-del mono" data-del aria-label="Borrar imagen">borrar</button>
       </figure>` : `
-      <div class="m-item m-link" data-id="${x.id}" style="--rot:${tilt(x.id)}deg">
-        <span class="tape" aria-hidden="true"></span>
+      <div class="m-item m-link" data-id="${x.id}">
         <a href="${esc(x.url)}" target="_blank" rel="noopener noreferrer">
           <span class="mono muted">${esc(host(x.url))}</span>
           <b>${esc(x.title || x.url)}</b>
