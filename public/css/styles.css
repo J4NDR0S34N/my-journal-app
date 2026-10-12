@@ -169,7 +169,7 @@ img { display: block; max-width: 100%; }
 .nav a:hover { color: var(--ink-2); }
 .nav a[aria-current] { color: var(--ink); font-weight: 500; }
 
-/* móvil: botón "Menú" + nombre de la sección en la esquina; lista a pantalla completa */
+/* botón del menú con el nombre de la sección; lista a pantalla completa */
 .topbar {
   position: fixed;
   z-index: 60;
@@ -194,6 +194,7 @@ img { display: block; max-width: 100%; }
   backdrop-filter: blur(8px);
   border-radius: 999px;
 }
+/* el botón dice la sección actual ("Inicio", "Progreso"…) */
 .nav-word { font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; }
 .nav-icon { display: grid; gap: 5px; }
 /* ícono: tres líneas que se cruzan en una ✕ cuando el menú está desplegado */
@@ -208,16 +209,6 @@ img { display: block; max-width: 100%; }
 body.nav-open .nav-icon span:nth-child(1) { transform: translateY(6.5px) rotate(45deg); }
 body.nav-open .nav-icon span:nth-child(2) { opacity: 0; transform: scaleX(0.4); }
 body.nav-open .nav-icon span:nth-child(3) { transform: translateY(-6.5px) rotate(-45deg); }
-/* nombre de la sección actual */
-.nav-current {
-  font: 400 11px var(--mono);
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--muted);
-  text-shadow: 0 0 10px var(--paper);
-  transition: opacity 0.3s var(--ease);
-}
-body.nav-open .nav-current { opacity: 0; }
 /* menú desplegado: vidrio esmerilado, se ve la sección desenfocada detrás */
 .nav {
   position: fixed;

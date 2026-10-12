@@ -50,7 +50,7 @@ async function switchAccount() {
   }
 }
 
-// Menú: el botón dice "Menú" (aria-expanded indica si está abierto). Abierto,
+// Menú: el botón muestra la sección actual (aria-expanded indica si está abierto). Abierto,
 // el foco queda atrapado entre el botón y el menú, y lo de atrás queda inerte.
 const isNavOpen = () => document.body.classList.contains("nav-open");
 function setNavOpen(v, { focus = false } = {}) {
@@ -111,7 +111,9 @@ async function route({ quiet = false } = {}) {
   resetUsed();
   nav.querySelectorAll("a").forEach((a) =>
     a.dataset.route === key ? a.setAttribute("aria-current", "page") : a.removeAttribute("aria-current"));
+  // El botón del menú muestra la sección actual (el nombre accesible lo incluye).
   navCurrent.textContent = label;
+  navToggle.setAttribute("aria-label", `Menú: ${label}`);
   document.title = key === "inicio" ? "My Journal" : `${label} — My Journal`;
   const old = view.firstElementChild;
   if (!quiet) old?.classList.add("leaving");
