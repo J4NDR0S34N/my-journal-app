@@ -368,7 +368,15 @@ body.gated .topbar, body.gated .nav, body.gated main { display: none; }
 .home[data-home-layout="stream"] .home-widgets { grid-template-columns: minmax(0,1fr); gap: 8px; }
 .home[data-home-layout="stream"] .home-spotlight-card { min-height: clamp(210px,28vw,320px); }
 .home-widget[hidden] { display: none; }
-.home-widget { min-width: 0; padding: 16px 17px; border: 1px solid color-mix(in srgb, var(--home-accent) 26%, var(--faint)); border-radius: 18px; background: color-mix(in srgb, var(--paper-2) 58%, transparent); box-shadow: 0 14px 42px color-mix(in srgb, #000 10%, transparent); backdrop-filter: blur(12px); }
+.home-widget { position: relative; min-width: 0; padding: 16px 17px; border: 1px solid color-mix(in srgb, var(--home-accent) 26%, var(--faint)); border-radius: 18px; background: color-mix(in srgb, var(--paper-2) 58%, transparent); box-shadow: 0 14px 42px color-mix(in srgb, #000 10%, transparent); backdrop-filter: blur(12px); }
+.home-widget-grip { position: absolute; top: 6px; right: 7px; z-index: 3; display: inline-flex; align-items: center; gap: 4px; min-height: 24px; padding: 3px 7px; border: 1px solid color-mix(in srgb,var(--home-accent) 25%,var(--line)); border-radius: 999px; background: color-mix(in srgb,var(--paper) 82%,transparent); color: var(--muted); font: 9px var(--mono); cursor: grab; opacity: .75; transition: opacity .18s,color .18s,border-color .18s,background .18s; touch-action: none; }
+.home-widget-grip:hover, .home-widget-grip:focus-visible { color: var(--ink); border-color: var(--home-accent); background: var(--paper-2); opacity: 1; }
+.home-widget-grip:active { cursor: grabbing; }
+.home-widget-grip > span:first-child { font-size: 15px; line-height: 1; }
+.home-widget.is-dragging { opacity: .45; transform: scale(.99); }
+.home-widget.home-drop-target { outline: 2px dashed var(--home-accent); outline-offset: 3px; }
+.home-shelf-more { margin-right: 46px; }
+.today-head, .home-progress-content, .home-activity-widget > .act-head, .home-reflection .umbral-q { padding-right: 48px; }
 .home-spotlight-widget, .home-widget.home-reflection { grid-column: 1 / -1; }
 .home-spotlight-widget { padding: 0; border: 0; background: transparent; box-shadow: none; backdrop-filter: none; }
 .home-spotlight-card { position: relative; display: flex; align-items: center; min-height: clamp(270px, 34vw, 390px); overflow: hidden; isolation: isolate; border: 1px solid color-mix(in srgb, var(--home-accent) 35%, var(--faint)); border-radius: 24px; background: radial-gradient(ellipse at 80% 45%, color-mix(in srgb, var(--home-accent) 14%, transparent), transparent 46%), color-mix(in srgb, var(--paper-2) 42%, transparent); }

@@ -148,7 +148,13 @@ export async function render(root) {
     home.style.setProperty("--home-accent", HOME_PRESETS[prefs.preset].accent);
     for (const id of HOME_MODULES) {
       const widget = root.querySelector(`[data-home-widget="${id}"]`);
-      if (widget) widget.hidden = !prefs.visible[id];
+      if (widget) {
+        widget.hidden = !prefs.visible[id];
+        if (!widget.querySelector("[data-home-grip]")) {
+          const [label] = MODULE_INFO[id];
+          widget.insertAdjacentHTML("afterbegin", `<button type="button" class="home-widget-grip" draggable="true" data-home-grip="${id}" aria-label="Arrastrar ${label} a otra posición" title="Arrastrá para mover este módulo"><span aria-hidden="true">⠿</span><span>Mover</span></button>`);
+        }
+      }
     }
     prefs.order.forEach((id) => {
       const widget = root.querySelector(`[data-home-widget="${id}"]`);
@@ -156,13 +162,98 @@ export async function render(root) {
     });
   };
   applyHomePrefs();
+  const widgets = $(".home-widgets");
+  let draggedWidget = "", pointerId = null, dragStart = null, originalOrder = [];
+  const saveWidgetOrder = () => {
+    prefs.order = [...widgets.querySelectorAll(":scope > [data-home-widget]")].map((widget) => widget.dataset.homeWidget);
+    saveHomePrefs(prefs);
+    applyHomePrefs();
+  };
+  const clearWidgetDrag = () => {
+    widgets.querySelectorAll(".is-dragging, .home-drop-target").forEach((widget) => widget.classList.remove("is-dragging", "home-drop-target"));
+    draggedWidget = ""; pointerId = null; dragStart = null; originalOrder = [];
+  };
+  widgets.addEventListener("pointerdown", (event) => {
+    if (event.pointerType === "mouse") return;
+    const grip = event.target.closest("[data-home-grip]");
+    if (!grip) return;
+    draggedWidget = grip.dataset.homeGrip;
+    pointerId = event.pointerId;
+    dragStart = [event.clientX, event.clientY];
+    originalOrder = [...prefs.order];
+    grip.setPointerCapture(pointerId);
+  });
+  widgets.addEventListener("pointermove", (event) => {
+    if (event.pointerType === "mouse") return;
+    if (!draggedWidget || event.pointerId !== pointerId) return;
+    if (Math.hypot(event.clientX - dragStart[0], event.clientY - dragStart[1]) < 8) return;
+    event.preventDefault();
+    const moving = widgets.querySelector(`[data-home-widget="${draggedWidget}"]`);
+    moving?.classList.add("is-dragging");
+    const target = document.elementFromPoint(event.clientX, event.clientY)?.closest("[data-home-widget]");
+    if (!target || !moving || target === moving) return;
+    widgets.querySelectorAll(".home-drop-target").forEach((widget) => widget.classList.remove("home-drop-target"));
+    target.classList.add("home-drop-target");
+    const rect = target.getBoundingClientRect();
+    const deltaX = (event.clientX - (rect.left + rect.width / 2)) / Math.max(rect.width, 1);
+    const deltaY = (event.clientY - (rect.top + rect.height / 2)) / Math.max(rect.height, 1);
+    const after = Math.abs(deltaX) > Math.abs(deltaY) ? deltaX > 0 : deltaY > 0;
+    widgets.insertBefore(moving, after ? target.nextElementSibling : target);
+  });
+  widgets.addEventListener("pointerup", (event) => {
+    if (!draggedWidget || event.pointerId !== pointerId) return;
+    if (widgets.querySelector(".is-dragging")) saveWidgetOrder();
+    clearWidgetDrag();
+  });
+  widgets.addEventListener("pointercancel", (event) => {
+    if (event.pointerType === "mouse") return;
+    if (!draggedWidget || event.pointerId !== pointerId) return;
+    originalOrder.forEach((id) => {
+      const widget = widgets.querySelector(`[data-home-widget="${id}"]`);
+      if (widget) widgets.append(widget);
+    });
+    clearWidgetDrag();
+  });
+  widgets.addEventListener("dragstart", (event) => {
+    const grip = event.target.closest("[data-home-grip]");
+    if (!grip) return;
+    draggedWidget = grip.dataset.homeGrip;
+    originalOrder = [...prefs.order];
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData("text/plain", draggedWidget);
+    widgets.querySelector(`[data-home-widget="${draggedWidget}"]`)?.classList.add("is-dragging");
+  });
+  widgets.addEventListener("dragover", (event) => {
+    const target = event.target.closest("[data-home-widget]");
+    const moving = widgets.querySelector(`[data-home-widget="${draggedWidget}"]`);
+    if (!draggedWidget || !target || !moving || target === moving) return;
+    event.preventDefault();
+    widgets.querySelectorAll(".home-drop-target").forEach((widget) => widget.classList.remove("home-drop-target"));
+    target.classList.add("home-drop-target");
+    const rect = target.getBoundingClientRect();
+    const after = event.clientY > rect.top + rect.height / 2;
+    widgets.insertBefore(moving, after ? target.nextElementSibling : target);
+  });
+  widgets.addEventListener("drop", (event) => {
+    if (!draggedWidget) return;
+    event.preventDefault();
+    saveWidgetOrder();
+    clearWidgetDrag();
+  });
+  widgets.addEventListener("dragend", () => {
+    if (draggedWidget) originalOrder.forEach((id) => {
+      const widget = widgets.querySelector(`[data-home-widget="${id}"]`);
+      if (widget) widgets.append(widget);
+    });
+    clearWidgetDrag();
+  });
   $(".home-customize").addEventListener("click", () => {
     const sectionCards = () => prefs.order.map((id, index) => {
       const [label, hint] = MODULE_INFO[id];
       return `<div class="home-section-toggle" data-home-row="${id}"><button type="button" class="home-section-drag" draggable="true" data-home-drag="${id}" aria-label="Arrastrar ${label} para cambiar su posición">⠿</button><span class="home-section-position mono">0${index + 1}</span><span class="home-section-copy"><b>${label}</b><small>${hint}</small></span><span class="home-section-actions"><button type="button" data-home-move="${id}:up" aria-label="Mover ${label} arriba" ${index === 0 ? "disabled" : ""}>↑</button><button type="button" data-home-move="${id}:down" aria-label="Mover ${label} abajo" ${index === prefs.order.length - 1 ? "disabled" : ""}>↓</button><input type="checkbox" data-home-visible="${id}" aria-label="Mostrar ${label}" ${prefs.visible[id] ? "checked" : ""}></span></div>`;
     }).join("");
     const layoutIcon = { showcase: '<svg viewBox="0 0 24 24"><rect x="3" y="3" width="8" height="8" rx="1"/><rect x="13" y="3" width="8" height="8" rx="1"/><rect x="3" y="13" width="8" height="8" rx="1"/><rect x="13" y="13" width="8" height="8" rx="1"/></svg>', columns: '<svg viewBox="0 0 24 24"><rect x="3" y="4" width="8" height="16" rx="1.5"/><rect x="13" y="4" width="8" height="7" rx="1.5"/><rect x="13" y="13" width="8" height="7" rx="1.5"/></svg>', stream: '<svg viewBox="0 0 24 24"><path d="M9 6h12M9 12h12M9 18h12"/><circle cx="4" cy="6" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="4" cy="18" r="1"/></svg>' };
-    const sheet = openSheet(`<div class="home-customizer"><p class="mono label">TU ESPACIO</p><h2>Personalizar Inicio</h2><p class="muted">Elegí una distribución, arrastrá los módulos o usá ↑ ↓, y activá solo los que quieras ver.</p>
+    const sheet = openSheet(`<div class="home-customizer"><p class="mono label">TU ESPACIO</p><h2>Personalizar Inicio</h2><p class="muted">Desde Inicio, arrastrá la manija de puntos de cada módulo. Acá también podés ordenarlos con ↑ ↓ y elegir cuáles mostrar.</p>
       <h3>Distribución</h3><div class="home-layout-choices" role="group" aria-label="Distribución del Inicio">${[["showcase", "Mosaico", "3 módulos por fila"], ["columns", "Revista", "Una portada y dos áreas"], ["stream", "Lista", "Todo en una columna"]].map(([id, label, hint]) => `<button type="button" class="home-layout-choice${prefs.layout === id ? " selected" : ""}" data-home-layout="${id}" aria-label="Diseño ${label}: ${hint}" aria-pressed="${prefs.layout === id}">${layoutIcon[id]}<span>${label}</span><small>${hint}</small></button>`).join("")}</div>
       <h3>Estilo visual</h3><div class="home-preset-list">${Object.entries(HOME_PRESETS).map(([id, item]) => `<button type="button" data-home-preset="${id}" class="home-preset${prefs.preset === id ? " selected" : ""}"><span class="home-preset-swatch" style="--swatch:${item.accent}"></span><span><b>${item.label}</b><small>${item.hint}</small></span><span class="home-preset-check">${prefs.preset === id ? "✓" : ""}</span></button>`).join("")}</div>
       <h3>Módulos · ordenar y mostrar</h3><div class="home-preset-list home-section-list">${sectionCards()}</div>
