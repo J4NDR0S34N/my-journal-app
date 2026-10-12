@@ -22,6 +22,13 @@ const WHERE = { habit: "Hábitos", games: "Colección", music: "Música", notes:
 const ROUTE = { habit: "inicio", games: "coleccion/videojuegos", music: "coleccion/musica", notes: "notas", misc: "misc" };
 const HOME_PREFS = "mj:home-layout:v2";
 const HOME_MODULES = ["spotlight", "games", "wishlist", "music", "today", "progress", "activity", "reflection"];
+const PROGRESS_AREAS = [
+  { label: "Fuerza", habits: ["gym"], cue: "Cada día de gimnasio suma 1 punto." },
+  { label: "Destreza", habits: ["run", "gaming", "drawing"], cue: "Correr, jugar o dibujar suma 1 punto al día." },
+  { label: "Inteligencia", habits: ["reading", "projects"], cue: "Leer o avanzar un proyecto suma 1 punto al día." },
+  { label: "Felicidad", habits: ["gaming", "movies", "drawing"], cue: "Disfrutar tus juegos, películas o dibujos suma 1 punto al día." },
+  { label: "Salud", habits: ["hydration", "rest", "run", "gym"], cue: "Cuidar tu cuerpo suma 1 punto al día." },
+];
 const MODULE_INFO = {
   spotlight: ["En portada", "Lo último que sumaste a tu colección."],
   games: ["Juegos añadidos", "Tus últimos juegos guardados."],
@@ -116,7 +123,7 @@ export async function render(root) {
         </div>
       </section>
       <section class="home-widget home-progress-widget" data-home-widget="progress" aria-label="Progreso personal">
-        <div class="home-progress-content"><p class="mono label">TU PROGRESO</p><strong>Tu constancia, día a día</strong><span class="home-progress-summary">Revisá tu calendario personal</span><a href="#/progreso">Ver progreso <span aria-hidden="true">↗</span></a></div>
+        <div class="home-progress-content"><p class="mono label">TU SIGUIENTE NIVEL</p><strong class="strength-name">Fuerza</strong><span class="strength-count mono">Calculando progreso…</span><div class="strength-meter" role="progressbar" aria-label="Progreso de Fuerza" aria-valuemin="0" aria-valuemax="5" aria-valuenow="0"><i></i></div><span class="strength-level mono"></span><small class="strength-hint">Cada día de gimnasio suma 1 punto · 5 para subir.</small><a class="home-progress-link" href="#/progreso">Ver progreso <span aria-hidden="true">↗</span></a></div>
       </section>
       <section class="home-widget home-activity-widget" data-home-widget="activity" aria-labelledby="act-h">
         <h2 id="act-h" class="act-head">Actividad reciente</h2>
@@ -255,9 +262,12 @@ export async function render(root) {
     }
   });
 
+  let progressAreas = [], progressIndex = 0, progressRotationTimer;
+
   function paintDays(days) {
     if (!root.isConnected) return;
     saved = { ...(days.find((d) => d.id === today)?.h || {}) };
+    paintStrength(days);
     const reflection = $(".umbral-in");
     const reflectionValue = days.find((d) => d.id === today)?.respuesta || "";
     savedReflection = reflectionValue;
@@ -271,6 +281,32 @@ export async function render(root) {
     const s = $(".streak");
     s.textContent = `🔥 ${plural(computeStreak(days, today, dayKey), "día", "días")}`;
     s.hidden = false;
+  }
+  function paintStrength(days) {
+    if (!days) return;
+    progressAreas = PROGRESS_AREAS.map((area) => {
+      const total = days.filter((day) => area.habits.some((key) => day.h?.[key])).length;
+      return { ...area, total, points: total % 5, level: Math.floor(total / 5) + 1 };
+    });
+    showStrength();
+    if (!progressRotationTimer && progressAreas.length > 1)
+      progressRotationTimer = setInterval(rotateStrength, 5000);
+  }
+  function showStrength() {
+    const { points, level, total, label, cue } = progressAreas[progressIndex];
+    const meter = $(".strength-meter");
+    $(".strength-name").textContent = label;
+    $(".strength-count").textContent = `${points}/5 puntos`;
+    $(".strength-level").textContent = `Nivel ${level} · ${total} ${total === 1 ? "día" : "días"} sumados`;
+    $(".strength-hint").textContent = `${cue} Con 5 puntos subís un nivel.`;
+    meter.setAttribute("aria-label", `${label}, nivel ${level}: ${points} de 5 puntos para el siguiente nivel`);
+    meter.setAttribute("aria-valuenow", points);
+    meter.querySelector("i").style.width = `${points * 20}%`;
+  }
+  function rotateStrength() {
+    if (!root.isConnected || progressAreas.length < 2) return;
+    progressIndex = (progressIndex + 1) % progressAreas.length;
+    showStrength();
   }
   list("days").then((days) => { paintDays(days); }).catch(() => {});
 
@@ -326,6 +362,7 @@ export async function render(root) {
   return () => {
     clearTimeout(clockTimer);
     clearInterval(tempTimer);
+    clearInterval(progressRotationTimer);
     clearTimeout(saveReflectionTimer);
     clearTimeout(reflectionTimer);
     document.removeEventListener("visibilitychange", onVisible);
