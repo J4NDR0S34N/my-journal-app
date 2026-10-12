@@ -180,7 +180,7 @@ export async function render(root) {
         widget.hidden = !prefs.visible[id];
         if (!widget.querySelector("[data-home-grip]")) {
           const [label] = MODULE_INFO[id];
-          widget.insertAdjacentHTML("afterbegin", `<button type="button" class="home-widget-grip" draggable="true" data-home-grip="${id}" aria-label="Arrastrar ${label} a otra posición" title="Arrastrá para mover este módulo"><span aria-hidden="true">⠿</span><span>Mover</span></button>`);
+          widget.insertAdjacentHTML("afterbegin", `<button type="button" class="home-widget-grip" data-home-grip="${id}" aria-label="Arrastrar ${label} a otra posición" title="Arrastrá para mover este módulo"><svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="5" cy="4" r="1"/><circle cx="11" cy="4" r="1"/><circle cx="5" cy="8" r="1"/><circle cx="11" cy="8" r="1"/><circle cx="5" cy="12" r="1"/><circle cx="11" cy="12" r="1"/></svg><span class="home-grip-label">Arrastrar</span></button>`);
         }
       }
     }
@@ -191,7 +191,7 @@ export async function render(root) {
     scheduleMasonry();
   };
   applyHomePrefs();
-  let draggedWidget = "", pointerId = null, dragStart = null, originalOrder = [];
+  let draggedWidget = "", pointerId = null, dragStart = null, originalOrder = [], dragMoved = false;
   const saveWidgetOrder = () => {
     prefs.order = [...widgets.querySelectorAll(":scope > [data-home-widget]")].map((widget) => widget.dataset.homeWidget);
     saveHomePrefs(prefs);
@@ -199,82 +199,82 @@ export async function render(root) {
   };
   const clearWidgetDrag = () => {
     widgets.querySelectorAll(".is-dragging, .home-drop-target").forEach((widget) => widget.classList.remove("is-dragging", "home-drop-target"));
-    draggedWidget = ""; pointerId = null; dragStart = null; originalOrder = [];
+    draggedWidget = ""; pointerId = null; dragStart = null; originalOrder = []; dragMoved = false;
+  };
+  const startWidgetDrag = (id, inputId, x, y, grip) => {
+    if (!grip || draggedWidget) return;
+    draggedWidget = id;
+    pointerId = inputId;
+    dragStart = [x, y];
+    originalOrder = [...widgets.querySelectorAll(":scope > [data-home-widget]")].map((widget) => widget.dataset.homeWidget);
+    dragMoved = false;
+    if (inputId !== "mouse") try { grip.setPointerCapture(inputId); } catch {}
+  };
+  const moveWidgetDrag = (x, y, event) => {
+    if (!draggedWidget) return;
+    if (!dragMoved && Math.hypot(x - dragStart[0], y - dragStart[1]) < 8) return;
+    event?.preventDefault();
+    const moving = widgets.querySelector(`[data-home-widget="${draggedWidget}"]`);
+    if (!moving) return;
+    dragMoved = true;
+    moving?.classList.add("is-dragging");
+    const target = document.elementFromPoint(x, y)?.closest("[data-home-widget]");
+    if (!target || target === moving || target.parentElement !== widgets) return;
+    widgets.querySelectorAll(".home-drop-target").forEach((widget) => widget.classList.remove("home-drop-target"));
+    target.classList.add("home-drop-target");
+    const rect = target.getBoundingClientRect();
+    const deltaX = (x - (rect.left + rect.width / 2)) / Math.max(rect.width, 1);
+    const deltaY = (y - (rect.top + rect.height / 2)) / Math.max(rect.height, 1);
+    const after = Math.abs(deltaX) > Math.abs(deltaY) ? deltaX > 0 : deltaY > 0;
+    const reference = after ? target.nextElementSibling : target;
+    if (reference !== moving && moving.nextElementSibling !== reference) {
+      widgets.insertBefore(moving, reference);
+      scheduleMasonry();
+    }
+  };
+  const finishWidgetDrag = (cancelled = false) => {
+    if (!draggedWidget) return;
+    if (cancelled) originalOrder.forEach((id) => {
+      const widget = widgets.querySelector(`[data-home-widget="${id}"]`);
+      if (widget) widgets.append(widget);
+    });
+    if (cancelled) scheduleMasonry();
+    else if (dragMoved) saveWidgetOrder();
+    clearWidgetDrag();
+  };
+  const onWidgetPointerMove = (event) => {
+    if (event.pointerId !== pointerId) return;
+    moveWidgetDrag(event.clientX, event.clientY, event);
+  };
+  const onWidgetPointerUp = (event) => {
+    if (event.pointerId !== pointerId) return;
+    finishWidgetDrag();
+  };
+  const onWidgetPointerCancel = (event) => {
+    if (event.pointerId !== pointerId) return;
+    finishWidgetDrag(true);
   };
   widgets.addEventListener("pointerdown", (event) => {
-    if (event.pointerType === "mouse") return;
+    if (event.pointerType === "mouse" || event.button !== 0) return;
     const grip = event.target.closest("[data-home-grip]");
-    if (!grip) return;
-    draggedWidget = grip.dataset.homeGrip;
-    pointerId = event.pointerId;
-    dragStart = [event.clientX, event.clientY];
-    originalOrder = [...prefs.order];
-    grip.setPointerCapture(pointerId);
+    if (grip) startWidgetDrag(grip.dataset.homeGrip, event.pointerId, event.clientX, event.clientY, grip);
   });
-  widgets.addEventListener("pointermove", (event) => {
-    if (event.pointerType === "mouse") return;
-    if (!draggedWidget || event.pointerId !== pointerId) return;
-    if (Math.hypot(event.clientX - dragStart[0], event.clientY - dragStart[1]) < 8) return;
-    event.preventDefault();
-    const moving = widgets.querySelector(`[data-home-widget="${draggedWidget}"]`);
-    moving?.classList.add("is-dragging");
-    const target = document.elementFromPoint(event.clientX, event.clientY)?.closest("[data-home-widget]");
-    if (!target || !moving || target === moving) return;
-    widgets.querySelectorAll(".home-drop-target").forEach((widget) => widget.classList.remove("home-drop-target"));
-    target.classList.add("home-drop-target");
-    const rect = target.getBoundingClientRect();
-    const deltaX = (event.clientX - (rect.left + rect.width / 2)) / Math.max(rect.width, 1);
-    const deltaY = (event.clientY - (rect.top + rect.height / 2)) / Math.max(rect.height, 1);
-    const after = Math.abs(deltaX) > Math.abs(deltaY) ? deltaX > 0 : deltaY > 0;
-    widgets.insertBefore(moving, after ? target.nextElementSibling : target);
-  });
-  widgets.addEventListener("pointerup", (event) => {
-    if (!draggedWidget || event.pointerId !== pointerId) return;
-    if (widgets.querySelector(".is-dragging")) saveWidgetOrder();
-    clearWidgetDrag();
-  });
-  widgets.addEventListener("pointercancel", (event) => {
-    if (event.pointerType === "mouse") return;
-    if (!draggedWidget || event.pointerId !== pointerId) return;
-    originalOrder.forEach((id) => {
-      const widget = widgets.querySelector(`[data-home-widget="${id}"]`);
-      if (widget) widgets.append(widget);
-    });
-    clearWidgetDrag();
-  });
-  widgets.addEventListener("dragstart", (event) => {
+  widgets.addEventListener("mousedown", (event) => {
+    if (event.button !== 0) return;
     const grip = event.target.closest("[data-home-grip]");
-    if (!grip) return;
-    draggedWidget = grip.dataset.homeGrip;
-    originalOrder = [...prefs.order];
-    event.dataTransfer.effectAllowed = "move";
-    event.dataTransfer.setData("text/plain", draggedWidget);
-    widgets.querySelector(`[data-home-widget="${draggedWidget}"]`)?.classList.add("is-dragging");
+    if (grip) startWidgetDrag(grip.dataset.homeGrip, "mouse", event.clientX, event.clientY, grip);
   });
-  widgets.addEventListener("dragover", (event) => {
-    const target = event.target.closest("[data-home-widget]");
-    const moving = widgets.querySelector(`[data-home-widget="${draggedWidget}"]`);
-    if (!draggedWidget || !target || !moving || target === moving) return;
-    event.preventDefault();
-    widgets.querySelectorAll(".home-drop-target").forEach((widget) => widget.classList.remove("home-drop-target"));
-    target.classList.add("home-drop-target");
-    const rect = target.getBoundingClientRect();
-    const after = event.clientY > rect.top + rect.height / 2;
-    widgets.insertBefore(moving, after ? target.nextElementSibling : target);
-  });
-  widgets.addEventListener("drop", (event) => {
-    if (!draggedWidget) return;
-    event.preventDefault();
-    saveWidgetOrder();
-    clearWidgetDrag();
-  });
-  widgets.addEventListener("dragend", () => {
-    if (draggedWidget) originalOrder.forEach((id) => {
-      const widget = widgets.querySelector(`[data-home-widget="${id}"]`);
-      if (widget) widgets.append(widget);
-    });
-    clearWidgetDrag();
-  });
+  const onWidgetMouseMove = (event) => {
+    if (pointerId === "mouse") moveWidgetDrag(event.clientX, event.clientY, event);
+  };
+  const onWidgetMouseUp = () => {
+    if (pointerId === "mouse") finishWidgetDrag();
+  };
+  document.addEventListener("pointermove", onWidgetPointerMove);
+  document.addEventListener("pointerup", onWidgetPointerUp);
+  document.addEventListener("pointercancel", onWidgetPointerCancel);
+  document.addEventListener("mousemove", onWidgetMouseMove);
+  document.addEventListener("mouseup", onWidgetMouseUp);
   $(".home-customize").addEventListener("click", () => {
     const sectionCards = () => prefs.order.map((id, index) => {
       const [label, hint] = MODULE_INFO[id];
@@ -542,6 +542,11 @@ export async function render(root) {
     clearTimeout(saveReflectionTimer);
     clearTimeout(reflectionTimer);
     document.removeEventListener("visibilitychange", onVisible);
+    document.removeEventListener("pointermove", onWidgetPointerMove);
+    document.removeEventListener("pointerup", onWidgetPointerUp);
+    document.removeEventListener("pointercancel", onWidgetPointerCancel);
+    document.removeEventListener("mousemove", onWidgetMouseMove);
+    document.removeEventListener("mouseup", onWidgetMouseUp);
     offMotion();
     offProfile();
     sky.destroy();
